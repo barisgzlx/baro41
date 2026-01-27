@@ -1,4 +1,4 @@
-const socket = io(); // Artık hata vermeyecek
+const socket = io(); 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -12,10 +12,9 @@ let player = {
     color: 'dodgerblue'
 };
 
-let otherPlayers = {};
+let otherPlayers = {}; // Diğer oyuncuların listesi
 let foods = [];
 
-// Yemleri oluştur (Senin çalışan kodun)
 for (let i = 0; i < 100; i++) {
     foods.push({
         x: Math.random() * canvas.width,
@@ -25,6 +24,7 @@ for (let i = 0; i < 100; i++) {
     });
 }
 
+// BURASI ÇOK ÖNEMLİ: Diğer oyuncuların yerini sürekli günceller
 socket.on('updatePlayers', (serverPlayers) => {
     otherPlayers = serverPlayers;
 });
@@ -32,7 +32,7 @@ socket.on('updatePlayers', (serverPlayers) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Yemleri çiz ve yeme kontrolü
+    // 1. Yemleri çiz
     foods.forEach((food, index) => {
         ctx.beginPath();
         ctx.arc(food.x, food.y, food.radius, 0, Math.PI * 2);
@@ -45,12 +45,12 @@ function draw() {
         let distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < player.radius + food.radius) {
             foods.splice(index, 1);
-            player.radius += 0.2; // Biraz küçülttüm ki multiplayer dengeli olsun
+            player.radius += 0.2;
             foods.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, radius: 5, color: food.color });
         }
     });
 
-    // 2. Diğer oyuncuları çiz (Kırmızı renkte)
+    // 2. DİĞER OYUNCULARI ÇİZ (Artık hareket edecekler!)
     Object.keys(otherPlayers).forEach((id) => {
         if (id !== socket.id) {
             let p = otherPlayers[id];
@@ -75,7 +75,8 @@ function draw() {
 window.addEventListener('mousemove', (e) => {
     player.x = e.clientX;
     player.y = e.clientY;
-    // Hareket bilgisini sunucuya gönder
+    
+    // BURASI DA ÇOK ÖNEMLİ: Kendi yerini sunucuya gönderir
     socket.emit('move', { x: player.x, y: player.y, radius: player.radius });
 });
 
