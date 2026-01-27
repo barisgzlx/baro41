@@ -8,13 +8,13 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
-// HTML'deki value değerleriyle (ffa1, ffa2) tam eşleşme sağlandı
 let rooms = {
     "ffa1": { players: {}, food: [] },
     "ffa2": { players: {}, food: [] },
     "ffa3": { players: {}, food: [] }
 };
 
+// Yemleri oluştur
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<400; i++) {
         rooms[r].food.push({
@@ -27,20 +27,14 @@ Object.keys(rooms).forEach(r => {
 io.on('connection', (socket) => {
     socket.on('join', (data) => {
         const roomName = data.room || "ffa1";
-        if (socket.currentRoom && rooms[socket.currentRoom]) {
-            delete rooms[socket.currentRoom].players[socket.id];
-            socket.leave(socket.currentRoom);
-        }
-        if (rooms[roomName]) {
-            socket.join(roomName);
-            socket.currentRoom = roomName;
-            rooms[roomName].players[socket.id] = {
-                x: worldSize / 2, y: worldSize / 2, radius: 30,
-                score: 0, gold: 500, nick: data.nick || "baro",
-                color: `hsl(${Math.random() * 360}, 100%, 50%)`
-            };
-            socket.emit('initFood', rooms[roomName].food);
-        }
+        socket.join(roomName);
+        socket.currentRoom = roomName;
+        rooms[roomName].players[socket.id] = {
+            x: worldSize / 2, y: worldSize / 2, radius: 30,
+            score: 0, gold: 500, nick: data.nick || "baro",
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`
+        };
+        socket.emit('initFood', rooms[roomName].food);
     });
 
     socket.on('move', (data) => {
@@ -48,10 +42,13 @@ io.on('connection', (socket) => {
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
             p.x = data.x; p.y = data.y;
+
+            // YEM YEME SİSTEMİ (Hata düzeltildi)
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius) {
-                    p.score += 1; p.radius += 0.2;
+                if (dist < p.radius + 5) { // Mesafe kontrolü esnetildi
+                    p.score += 2; // Yedikçe skor artar
+                    p.radius += 0.2; // Yedikçe büyür
                     return false;
                 }
                 return true;
@@ -63,9 +60,7 @@ io.on('connection', (socket) => {
         const room = socket.currentRoom;
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
-            if (p.gold >= 100) {
-                p.gold -= 100; p.score += 200; p.radius += 5;
-            }
+            if (p.gold >= 100) { p.gold -= 100; p.score += 200; p.radius += 5; }
         }
     });
 
@@ -77,7 +72,9 @@ io.on('connection', (socket) => {
 });
 
 setInterval(() => {
-    Object.keys(rooms).forEach(r => { io.to(r).emit('updatePlayers', rooms[r].players); });
+    Object.keys(rooms).forEach(r => { 
+        io.to(r).emit('updatePlayers', rooms[r].players); 
+    });
 }, 20);
 
 server.listen(process.env.PORT || 3000);
