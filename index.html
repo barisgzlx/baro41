@@ -1,29 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Baris Agar - FFA Odalari</title>
+    <title>Baris Agarz - FFA Odaları</title>
     <style>
-        body { margin: 0; background: #111; overflow: hidden; font-family: Arial; color: white; }
+        body { margin: 0; background: #111; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
         #menu {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #222; padding: 30px; border-radius: 15px; text-align: center;
-            border: 2px solid dodgerblue; z-index: 10;
+            background: rgba(34, 34, 34, 0.95); padding: 40px; border-radius: 20px; 
+            text-align: center; border: 3px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
+        h1 { color: dodgerblue; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        .btn-container { display: flex; flex-direction: column; gap: 10px; }
         button { 
-            padding: 15px 30px; margin: 10px; cursor: pointer; border: none; 
-            border-radius: 8px; background: dodgerblue; color: white; 
-            font-size: 18px; font-weight: bold; transition: 0.3s;
+            padding: 12px 40px; cursor: pointer; border: none; 
+            border-radius: 5px; background: #333; color: white; 
+            font-size: 16px; font-weight: bold; transition: 0.2s;
         }
-        button:hover { background: #1e90ff; transform: scale(1.1); }
-        canvas { display: none; background: black; }
+        button:hover { background: dodgerblue; transform: scale(1.05); }
+        canvas { display: none; background: #050505; }
     </style>
 </head>
 <body>
     <div id="menu">
         <h1>AGARZ FFA</h1>
-        <p>Bir Oda Seç ve Başla:</p>
-        <button onclick="joinRoom('ffa1')">FFA 1</button>
-        <button onclick="joinRoom('ffa2')">FFA 2</button>
+        <div class="btn-container">
+            <button onclick="joinRoom('ffa1')">FFA 1</button>
+            <button onclick="joinRoom('ffa2')">FFA 2</button>
+            <button onclick="joinRoom('ffa3')">FFA 3</button>
+            <button onclick="joinRoom('ffa4')">FFA 4</button>
+            <button onclick="joinRoom('ffa5')">FFA 5</button>
+        </div>
     </div>
     <canvas id="gameCanvas"></canvas>
     <script src="/socket.io/socket.io.js"></script>
