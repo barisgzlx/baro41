@@ -15,5 +15,5 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log('Sunucu 3000 portunda hazir!');
+    console.log('Sunucu hazir!');
 });
