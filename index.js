@@ -7,25 +7,16 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-// Odalara göre oyuncuları ayırıyoruz
-let rooms = {
-    ffa1: {},
-    ffa2: {}
-};
+let rooms = { ffa1: {}, ffa2: {} };
 
 io.on('connection', (socket) => {
     socket.on('join', (roomName) => {
         socket.join(roomName);
         socket.currentRoom = roomName;
-
         rooms[roomName][socket.id] = { 
-            x: Math.random() * 800, 
-            y: Math.random() * 600, 
-            radius: 20, 
+            x: 500, y: 500, radius: 20, 
             color: roomName === 'ffa1' ? 'dodgerblue' : 'limegreen' 
         };
-
-        // Sadece o odadaki oyunculara listeyi gönder
         io.to(roomName).emit('updatePlayers', rooms[roomName]);
     });
 
@@ -49,4 +40,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log('Odali sistem hazir!'));
+server.listen(PORT, () => console.log('Sistem Hazir!'));
