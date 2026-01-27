@@ -1,14 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Baris Agar Multiplayer</title>
+    <title>Baris Agar - FFA Odalari</title>
     <style>
-        body { margin: 0; background: black; overflow: hidden; }
-        canvas { display: block; }
+        body { margin: 0; background: #111; overflow: hidden; font-family: sans-serif; }
+        canvas { display: none; } /* Oyun başlayana kadar gizli */
+        #menu {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 20px; border-radius: 10px; text-align: center;
+        }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; background: #dodgerblue; color: white; font-weight: bold; }
+        button:hover { background: #1e90ff; }
     </style>
 </head>
 <body>
+    <div id="menu">
+        <h1>Agarz FFA</h1>
+        <p>Bir oda seç:</p>
+        <button onclick="joinRoom('ffa1')">FFA 1</button>
+        <button onclick="joinRoom('ffa2')">FFA 2</button>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
