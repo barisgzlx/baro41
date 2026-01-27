@@ -10,7 +10,19 @@ app.use(express.static(__dirname));
 const worldSize = 3000;
 let rooms = { "ffa1": { players: {}, food: [] }, "ffa2": { players: {}, food: [] } };
 
-// Yemleri oluştur (200 adet)
+// 1 Saatlik Sayaç (3600 saniye)
+let timeLeft = 3600;
+setInterval(() => {
+    if (timeLeft > 0) {
+        timeLeft--;
+        io.emit('timerUpdate', timeLeft);
+    } else {
+        // Süre bittiğinde kazanana bakılabilir, şimdilik resetliyoruz
+        timeLeft = 3600;
+        io.emit('gameFinished', 'Oyun Süresi Doldu!');
+    }
+}, 1000);
+
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<200; i++) {
         rooms[r].food.push({ id: Math.random(), x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
@@ -36,16 +48,16 @@ io.on('connection', (socket) => {
             let p = rooms[room].players[socket.id];
             p.x = data.x; p.y = data.y;
 
-            // Yem yeme kontrolü
-            let initialLen = rooms[room].food.length;
+            // Yem yeme
+            let ate = false;
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius) { p.score += 2; p.radius += 0.15; return false; }
+                if (dist < p.radius) { p.score += 2; p.radius += 0.15; ate = true; return false; }
                 return true;
             });
-            if (rooms[room].food.length !== initialLen) io.to(room).emit('initFood', rooms[room].food);
+            if (ate) io.to(room).emit('initFood', rooms[room].food);
 
-            // Oyuncu yeme (Büyük küçüğü yer)
+            // Oyuncu yeme
             Object.keys(rooms[room].players).forEach(id => {
                 if (id !== socket.id) {
                     let other = rooms[room].players[id];
