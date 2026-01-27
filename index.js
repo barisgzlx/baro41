@@ -8,21 +8,12 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
-let rooms = {
-    "ffa1": { players: {}, food: [] },
-    "ffa2": { players: {}, food: [] },
-    "ffa3": { players: {}, food: [] }
-};
+let rooms = { "ffa1": { players: {}, food: [] }, "ffa2": { players: {}, food: [] } };
 
 // Yemleri oluştur (200 adet)
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<200; i++) {
-        rooms[r].food.push({
-            id: Math.random(), 
-            x: Math.random() * worldSize, 
-            y: Math.random() * worldSize,
-            color: `hsl(${Math.random() * 360}, 100%, 50%)`
-        });
+        rooms[r].food.push({ id: Math.random(), x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
     }
 });
 
@@ -45,34 +36,24 @@ io.on('connection', (socket) => {
             let p = rooms[room].players[socket.id];
             p.x = data.x; p.y = data.y;
 
-            // 1. YEM YEME KONTROLÜ
-            let ate = false;
+            // Yem yeme kontrolü
+            let initialLen = rooms[room].food.length;
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius) {
-                    p.score += 2; p.radius += 0.15;
-                    ate = true; return false;
-                }
+                if (dist < p.radius) { p.score += 2; p.radius += 0.15; return false; }
                 return true;
             });
-            if (ate) io.to(room).emit('initFood', rooms[room].food);
+            if (rooms[room].food.length !== initialLen) io.to(room).emit('initFood', rooms[room].food);
 
-            // 2. OYUNCU YEME KONTROLÜ (Büyük Küçüğü Yer)
-            Object.keys(rooms[room].players).forEach(otherId => {
-                if (otherId !== socket.id) {
-                    let other = rooms[room].players[otherId];
+            // Oyuncu yeme (Büyük küçüğü yer)
+            Object.keys(rooms[room].players).forEach(id => {
+                if (id !== socket.id) {
+                    let other = rooms[room].players[id];
                     let dist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
-                    
-                    // Eğer ben ondan %10 daha büyüksem ve değdiysem onu yerim
                     if (dist < p.radius && p.score > other.score * 1.1) {
-                        p.score += other.score;
-                        p.radius += other.radius * 0.5;
-                        // Yenen oyuncuyu başlangıç noktasına at ve skorunu sıfırla
-                        other.x = worldSize / 2;
-                        other.y = worldSize / 2;
-                        other.score = 0;
-                        other.radius = 30;
-                        io.to(otherId).emit('respawn'); // İstemciye ölme sinyali
+                        p.score += other.score; p.radius += other.radius * 0.4;
+                        other.score = 0; other.radius = 30; other.x = worldSize/2; other.y = worldSize/2;
+                        io.to(id).emit('respawn');
                     }
                 }
             });
@@ -87,11 +68,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        if (socket.currentRoom && rooms[socket.currentRoom]) {
-            delete rooms[socket.currentRoom].players[socket.id];
-        }
-    });
+    socket.on('disconnect', () => { if (socket.currentRoom) delete rooms[socket.currentRoom].players[socket.id]; });
 });
 
 setInterval(() => {
