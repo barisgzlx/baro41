@@ -4,59 +4,46 @@
     <meta charset="UTF-8">
     <title>Baro Agarz</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         canvas { display: block; }
         #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .menu { background: #fff; padding: 25px; border-radius: 15px; text-align: center; width: 300px; }
         input, select, button { margin: 8px auto; padding: 12px; display: block; width: 90%; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
         .play-btn { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
         .spec-btn { background: #6c757d; color: white; border: none; cursor: pointer; }
-        
         #sayfam-btn { position: absolute; top: 15px; left: 15px; background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; font-weight: bold; z-index: 600; }
-        #top-info { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; padding: 8px 25px; border-radius: 25px; z-index: 500; }
+        #top-info { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; padding: 8px 25px; border-radius: 25px; z-index: 500; font-size: 18px; }
         #stats { position: absolute; bottom: 25px; left: 25px; color: white; font-size: 20px; font-weight: bold; pointer-events: none; }
-        
-        #leaderboard { position: absolute; top: 15px; right: 15px; width: 220px; background: rgba(0,0,0,0.6); color: white; padding: 12px; border-radius: 8px; }
-        #leaderboard h3 { margin: 0; font-size: 16px; text-align: center; color: #ffcc00; border-bottom: 1px solid #555; }
-        #lb-list { margin-top: 10px; min-height: 50px; }
-        #last-winner { margin-top: 10px; padding-top: 5px; border-top: 2px dashed #ffcc00; font-size: 13px; color: #ffcc00; text-align: center; }
+        #leaderboard { position: absolute; top: 15px; right: 15px; width: 220px; background: rgba(0,0,0,0.6); color: white; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); }
+        #leaderboard h3 { margin: 0; font-size: 16px; text-align: center; color: #ffcc00; border-bottom: 1px solid #555; padding-bottom: 5px; }
+        #lb-list { margin-top: 10px; }
+        #last-winner { margin-top: 10px; padding-top: 5px; border-top: 1px dashed #ffcc00; font-size: 13px; color: #ffcc00; text-align: center; }
     </style>
 </head>
 <body>
-
-    <a href="/galibiyetler.html" target="_blank" id="sayfam-btn">SAYFAM</a>
-
+    <a href="https://google.com" target="_blank" id="sayfam-btn">SAYFAM</a>
     <div id="overlay">
         <div class="menu">
-            <h2 style="margin:0 0 15px 0;">Baro Agarz</h2>
-            <input type="text" id="nick" placeholder="Nick..." maxlength="12">
+            <h2 style="margin:0 0 15px 0; color: #333;">Baro Agarz</h2>
+            <input type="text" id="nick" placeholder="Nick Yaz..." maxlength="12">
             <select id="room">
-                <option value="ffa1">FFA-1</option>
-                <option value="ffa2">FFA-2</option>
+                <option value="ffa1">Sunucu: FFA-1</option>
             </select>
             <button class="play-btn" onclick="join(false)">OYNA</button>
             <button class="spec-btn" onclick="join(true)">İZLE</button>
         </div>
     </div>
-
-    <div id="top-info">
-        <span id="room-name" style="color: #ffcc00; font-weight:bold;">FFA-1</span> | 
-        <span id="timer">60:00</span>
-    </div>
-
+    <div id="top-info"><span id="room-name" style="color: #ffcc00; font-weight:bold;">FFA-1</span> | <span id="timer">60:00</span></div>
     <div id="stats">
-        <div style="color: #ffcc00;">Altın: <span id="my-gold">0</span></div>
+        <div style="color: #ffcc00;">Gold: <span id="my-gold">0</span></div>
         <div>Skor: <span id="my-score">0</span></div>
     </div>
-
     <div id="leaderboard">
         <h3>Oyuncu Tablosu</h3>
         <div id="lb-list"></div>
-        <div id="last-winner">Son Şampiyon: <span>Bekleniyor...</span></div>
+        <div id="last-winner">Şampiyon: <span>Bekleniyor...</span></div>
     </div>
-
     <canvas id="gameCanvas"></canvas>
-
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
