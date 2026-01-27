@@ -7,16 +7,27 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-let rooms = { ffa1: {}, ffa2: {} };
+// 5 adet oda tanımlıyoruz
+let rooms = { 
+    ffa1: {}, ffa2: {}, ffa3: {}, ffa4: {}, ffa5: {} 
+};
 
 io.on('connection', (socket) => {
     socket.on('join', (roomName) => {
+        // Geçerli bir oda mı kontrol et
+        if (!rooms[roomName]) return;
+
         socket.join(roomName);
         socket.currentRoom = roomName;
+        
+        // Oyuncuyu o odaya kaydet
         rooms[roomName][socket.id] = { 
-            x: 500, y: 500, radius: 20, 
-            color: roomName === 'ffa1' ? 'dodgerblue' : 'limegreen' 
+            x: Math.random() * 1000, 
+            y: Math.random() * 800, 
+            radius: 20, 
+            color: `hsl(${Math.random() * 360}, 70%, 50%)` // Her girişte farklı renk
         };
+        
         io.to(roomName).emit('updatePlayers', rooms[roomName]);
     });
 
@@ -40,4 +51,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log('Sistem Hazir!'));
+server.listen(PORT, () => console.log('5 Odalı Sistem Yayında!'));
