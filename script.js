@@ -2,7 +2,7 @@ const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
-const lbList = document.getElementById('lb-list');
+const lbList = document.getElementById('lb-list'); // HTML'deki liste alanı
 
 let otherPlayers = {};
 let foods = [];
@@ -16,25 +16,31 @@ canvas.height = window.innerHeight;
 
 socket.on('initFood', (f) => { foods = f; });
 
+// Ölme durumu (Biri seni yediğinde)
+socket.on('respawn', () => {
+    myLocalPos = { x: 1500, y: 1500 };
+    alert("Yenildin! Tekrar başlıyorsun.");
+});
+
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
-    // TİTREMEYİ BİTİREN ÖNEMLİ AYAR:
-    // Sunucu verisi karakterimizi geriye çekmeye çalışmayacak, sadece skor ve gold verisini alacağız.
     
     // OYUNCU TABLOSU GÜNCELLEME
     if (lbList) {
         let listHTML = "";
         const sorted = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
         sorted.forEach((pl, i) => {
-            listHTML += `<div style="color:white; font-size:14px; margin-bottom:5px;">${i+1}. ${pl.nick}: ${Math.floor(pl.score)}</div>`;
+            listHTML += `<div style="color:white; font-size:14px; margin-bottom:4px; font-family: sans-serif;">
+                ${i+1}. ${pl.nick}: ${Math.floor(pl.score)}
+            </div>`;
         });
         lbList.innerHTML = listHTML;
     }
 });
 
 // Başlığı "Oyuncu Tablosu" yap
-const lbTitle = document.querySelector('#leaderboard h3');
-if (lbTitle) lbTitle.innerText = "Oyuncu Tablosu";
+const h3 = document.querySelector('#leaderboard h3');
+if (h3) h3.innerText = "Oyuncu Tablosu";
 
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
@@ -54,26 +60,21 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// ANA HAREKET (Sıfır Titreme / Akıcı Hareket)
+// Hareket Döngüsü (Titreşimsiz)
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        
         if (dist > 5) {
-            // Tamamen yerel hesaplama
             myLocalPos.x += (dx / dist) * 4.5;
             myLocalPos.y += (dy / dist) * 4.5;
         }
-
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
-
-        // Sunucuya sadece konum bilgisini gönder
         socket.emit('move', { x: myLocalPos.x, y: myLocalPos.y });
     }
-}, 16); // 60 FPS
+}, 16);
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -81,33 +82,25 @@ function draw() {
 
     const me = otherPlayers[socket.id];
     ctx.save();
-    // Kamerayı karakterine sabitle (Titremeyi %100 keser)
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Sınır
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
 
-    // Yemler
     foods.forEach(f => {
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Oyuncuları Çiz
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
-        // Kendi karakterimizi yerel pos'ta, diğerlerini sunucu pos'unda çiz
         const rX = (id === socket.id) ? myLocalPos.x : p.x;
         const rY = (id === socket.id) ? myLocalPos.y : p.y;
-        
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(rX, rY, p.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.fillText(p.nick, rX, rY + 5);
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(p.nick, rX, rY + 5);
     });
     ctx.restore();
 
-    // HUD
     if (me) {
         ctx.fillStyle = "yellow"; ctx.font = "bold 20px Arial";
         ctx.fillText(`Gold: ${me.gold}`, 20, 40);
