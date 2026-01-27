@@ -16,15 +16,12 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 socket.on('initFood', (f) => { foods = f; });
-socket.on('respawn', () => { myLocalPos = { x: 1500, y: 1500 }; alert("Yenildin! Skorun sıfırlandı."); });
+socket.on('respawn', () => { myLocalPos = { x: 1500, y: 1500 }; alert("Yenildin! 100 skorla yeniden doğuyorsun."); });
 
-// TUŞ KONTROLLERİ (ESC ve S)
 window.addEventListener('keydown', (e) => {
-    // ESC - Menüyü aç/kapat
     if (e.key === "Escape") {
         overlay.style.display = (overlay.style.display === 'none' || overlay.style.display === '') ? 'flex' : 'none';
     }
-    // S - Skor Satın Al
     if (e.key.toLowerCase() === 's') {
         socket.emit('buyScore');
     }
@@ -40,14 +37,10 @@ socket.on('timerUpdate', (seconds) => {
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
     const me = p[socket.id];
-    
-    // Panel Güncelleme
     if (me) {
         document.getElementById('my-gold').innerText = me.gold;
         document.getElementById('my-score').innerText = Math.floor(me.score);
     }
-
-    // Tablo Güncelleme
     if (lbList) {
         let listHTML = "";
         const sorted = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
@@ -68,15 +61,16 @@ function join() {
 
 window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
 
-// Hareket Döngüsü
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist > 5) {
-            myLocalPos.x += (dx / dist) * 4.5;
-            myLocalPos.y += (dy / dist) * 4.5;
+            // Hız, boyut büyüdükçe çok hafif yavaşlar (denge için)
+            let speed = 4.5; 
+            myLocalPos.x += (dx / dist) * speed;
+            myLocalPos.y += (dy / dist) * speed;
         }
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
@@ -89,7 +83,9 @@ function draw() {
     if (!isPlaying) { requestAnimationFrame(draw); return; }
 
     ctx.save();
+    // Kamera Zoom Kontrolü: Çok büyüdüğünde kameranın uzaklaşması için (opsiyonel)
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
+    
     ctx.strokeStyle = "red"; ctx.lineWidth = 10; ctx.strokeRect(0, 0, worldSize, worldSize);
 
     foods.forEach(f => {
@@ -103,7 +99,9 @@ function draw() {
         const rY = (id === socket.id) ? myLocalPos.y : p.y;
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(rX, rY, p.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(p.nick, rX, rY + 5);
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; 
+        ctx.font = `${Math.max(12, p.radius/2)}px Arial`;
+        ctx.fillText(p.nick, rX, rY + (p.radius/10));
     });
     ctx.restore();
     requestAnimationFrame(draw);
