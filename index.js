@@ -9,44 +9,64 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
-let players = {};
-let food = [];
+// ODALAR BURADA TANIMLI
+let rooms = {
+    "FFA-1": { players: {}, food: [] },
+    "FFA-2": { players: {}, food: [] }
+};
 
-// Yemleri oluştur
-for(let i=0; i<300; i++) {
-    food.push({
-        id: i,
-        x: Math.random() * worldSize,
-        y: Math.random() * worldSize,
-        color: `hsl(${Math.random() * 360}, 100%, 50%)`
-    });
-}
+// Odalara yem ekle
+Object.keys(rooms).forEach(r => {
+    for(let i=0; i<300; i++) {
+        rooms[r].food.push({
+            id: i,
+            x: Math.random() * worldSize,
+            y: Math.random() * worldSize,
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`
+        });
+    }
+});
 
 io.on('connection', (socket) => {
     socket.on('join', (data) => {
-        players[socket.id] = {
-            x: worldSize / 2,
-            y: worldSize / 2,
-            radius: 30,
-            nick: data.nick || "baro",
-            color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-            score: 0,
-            gold: 500
-        };
-        socket.emit('initFood', food);
+        const roomName = data.room || "FFA-1";
+        
+        // Önceki odadan sil
+        if (socket.currentRoom && rooms[socket.currentRoom]) {
+            delete rooms[socket.currentRoom].players[socket.id];
+            socket.leave(socket.currentRoom);
+        }
+
+        // Yeni odaya gir
+        if (rooms[roomName]) {
+            socket.join(roomName);
+            socket.currentRoom = roomName;
+            rooms[roomName].players[socket.id] = {
+                x: worldSize / 2,
+                y: worldSize / 2,
+                radius: 30,
+                nick: data.nick || "baro",
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                score: 0,
+                gold: 500
+            };
+            socket.emit('initFood', rooms[roomName].food);
+        }
     });
 
     socket.on('move', (data) => {
-        if (players[socket.id]) {
-            players[socket.id].x = data.x;
-            players[socket.id].y = data.y;
-            
-            // Basit yem yeme kontrolü
-            food = food.filter(f => {
-                let dist = Math.sqrt((players[socket.id].x - f.x)**2 + (players[socket.id].y - f.y)**2);
-                if (dist < players[socket.id].radius) {
-                    players[socket.id].score += 1;
-                    players[socket.id].radius += 0.1;
+        const room = socket.currentRoom;
+        if (room && rooms[room]?.players[socket.id]) {
+            let p = rooms[room].players[socket.id];
+            p.x = data.x;
+            p.y = data.y;
+
+            // Yem yeme
+            rooms[room].food = rooms[room].food.filter(f => {
+                let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
+                if (dist < p.radius) {
+                    p.score += 1;
+                    p.radius += 0.1;
                     return false;
                 }
                 return true;
@@ -54,10 +74,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => { delete players[socket.id]; });
+    socket.on('disconnect', () => {
+        const room = socket.currentRoom;
+        if (room && rooms[room]?.players[socket.id]) {
+            delete rooms[room].players[socket.id];
+        }
+    });
 });
 
-setInterval(() => { io.emit('updatePlayers', players); }, 20);
+// Saniyede 40 kez güncelleme
+setInterval(() => {
+    Object.keys(rooms).forEach(r => {
+        io.to(r).emit('updatePlayers', rooms[r].players);
+    });
+}, 25);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Sistem Aktif"));
+server.listen(PORT, () => console.log("FFA Odalari Aktif: " + PORT));
