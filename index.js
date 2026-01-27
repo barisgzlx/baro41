@@ -16,7 +16,7 @@ let rooms = {
 
 // Yemleri oluştur
 Object.keys(rooms).forEach(r => {
-    for(let i=0; i<400; i++) {
+    for(let i=0; i<450; i++) {
         rooms[r].food.push({
             id: i, x: Math.random() * worldSize, y: Math.random() * worldSize,
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
@@ -41,14 +41,16 @@ io.on('connection', (socket) => {
         const room = socket.currentRoom;
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
-            p.x = data.x; p.y = data.y;
+            // Hareketi sunucuda güncelle
+            p.x = data.x;
+            p.y = data.y;
 
-            // YEM YEME SİSTEMİ (Hata düzeltildi)
+            // YEM YEME KONTROLÜ
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius + 5) { // Mesafe kontrolü esnetildi
-                    p.score += 2; // Yedikçe skor artar
-                    p.radius += 0.2; // Yedikçe büyür
+                if (dist < p.radius + 2) { 
+                    p.score += 2;
+                    p.radius += 0.15;
                     return false;
                 }
                 return true;
@@ -71,10 +73,11 @@ io.on('connection', (socket) => {
     });
 });
 
+// Güncelleme hızını stabilize et
 setInterval(() => {
     Object.keys(rooms).forEach(r => { 
         io.to(r).emit('updatePlayers', rooms[r].players); 
     });
-}, 20);
+}, 33); // ~30 FPS
 
 server.listen(process.env.PORT || 3000);
