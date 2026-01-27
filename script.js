@@ -19,11 +19,11 @@ socket.on('updatePlayers', (p) => {
     if (p[socket.id]) {
         const sP = p[socket.id];
         const dist = Math.sqrt((sP.x - myLocalPos.x)**2 + (sP.y - myLocalPos.y)**2);
-        if (dist > 100) { myLocalPos.x = sP.x; myLocalPos.y = sP.y; }
+        if (dist > 80) { myLocalPos.x = sP.x; myLocalPos.y = sP.y; }
     }
 });
 
-// ESC VE S TUŞU KONTROLÜ
+// TUŞLAR: ESC (Menü) ve S (Altın Harca)
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") {
         overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
@@ -33,9 +33,14 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+// OYNA BUTONU (HTML'deki onclick="join()" ile uyumlu)
 function join() {
-    const nickVal = document.getElementById('nick').value || "baro";
-    const roomVal = document.getElementById('room').value;
+    const nickInput = document.getElementById('nick');
+    const roomSelect = document.getElementById('room');
+    
+    const nickVal = nickInput ? nickInput.value : "baro";
+    const roomVal = roomSelect ? roomSelect.value : "FFA-1";
+    
     overlay.style.display = 'none';
     isPlaying = true;
     socket.emit('join', { room: roomVal, nick: nickVal });
@@ -46,7 +51,7 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// PİNGİ YOK EDEN YEREL HAREKET
+// PİNGSİZ HAREKET SİSTEMİ
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
@@ -70,7 +75,7 @@ function draw() {
     ctx.save();
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Kırmızı Sınır ve Grid
+    // Grid ve Sınır
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
 
     foods.forEach(f => {
@@ -82,6 +87,7 @@ function draw() {
         const p = otherPlayers[id];
         const dX = (id === socket.id) ? myLocalPos.x : p.x;
         const dY = (id === socket.id) ? myLocalPos.y : p.y;
+        
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(dX, dY, p.radius, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "white"; ctx.textAlign = "center";
@@ -91,9 +97,11 @@ function draw() {
 
     ctx.restore();
 
-    // SKOR VE GOLD EKRANI
+    // HUD: GOLD VE SKOR (Sol Üst Köşe)
     if (me) {
-        ctx.fillStyle = "yellow"; ctx.font = "bold 22px Arial";
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(10, 10, 180, 80);
+        ctx.fillStyle = "yellow"; ctx.font = "bold 20px Arial";
         ctx.fillText(`Gold: ${me.gold}`, 20, 40);
         ctx.fillStyle = "white";
         ctx.fillText(`Skor: ${Math.floor(me.score)}`, 20, 70);
