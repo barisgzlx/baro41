@@ -11,13 +11,12 @@
         input, select { margin: 8px auto; padding: 12px; display: block; width: 90%; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
         .button-row { display: flex; justify-content: space-between; width: 95%; margin: 10px auto; }
         .play-btn { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; width: 48%; padding: 12px; border-radius: 5px; }
-        .sayfam-btn { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; width: 48%; padding: 12px; border-radius: 5px; }
+        .sayfam-link { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; width: 48%; padding: 12px; border-radius: 5px; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         .spec-btn { background: #6c757d; color: white; border: none; cursor: pointer; width: 95%; padding: 10px; margin-top: 5px; border-radius: 5px; }
         #leaderboard { position: absolute; top: 15px; right: 15px; width: 220px; background: rgba(0,0,0,0.6); color: white; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); }
         #last-winner { font-size: 14px; color: #ffcc00; text-align: center; margin-bottom: 8px; font-weight: bold; border-bottom: 1px dashed #555; padding-bottom: 5px; }
         #top-info { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; padding: 8px 25px; border-radius: 25px; z-index: 500; font-size: 18px; }
         #stats { position: absolute; bottom: 25px; left: 25px; color: white; font-size: 20px; font-weight: bold; pointer-events: none; }
-        #win-panel { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; z-index: 2000; width: 250px; text-align: center; border: 3px solid #007bff; }
     </style>
 </head>
 <body>
@@ -27,20 +26,22 @@
             <input type="text" id="nick" placeholder="Nick Yaz..." maxlength="12">
             <select id="room"><option value="ffa1">Sunucu: FFA-1</option></select>
             <div class="button-row">
-                <button class="sayfam-btn" onclick="toggleWinPanel()">Agar.Sayfam</button>
+                <a href="sayfam.html" target="_blank" class="sayfam-link">Sayfam</a>
                 <button class="play-btn" onclick="join(false)">OYNA</button>
             </div>
             <button class="spec-btn" onclick="join(true)">İZLE MODU</button>
         </div>
     </div>
-    <div id="win-panel">
-        <h3>Galibiyetler</h3>
-        <div id="win-list" style="text-align: left; margin: 10px 0; max-height: 200px; overflow-y: auto;"></div>
-        <button onclick="toggleWinPanel()" style="width: 100%; padding: 10px; cursor: pointer;">Kapat</button>
-    </div>
     <div id="top-info"><span id="room-name" style="color: #ffcc00; font-weight:bold;">FFA-1</span> | <span id="timer">01:00</span></div>
-    <div id="stats"><div style="color: #ffcc00;">Gold: <span id="my-gold">0</span></div><div style="color: #fff;">Skor: <span id="my-score">0</span></div></div>
-    <div id="leaderboard"><div id="last-winner">Şampiyon: <span>Yok</span></div><h3>Oyuncu Tablosu</h3><div id="lb-list"></div></div>
+    <div id="stats">
+        <div style="color: #ffcc00;">Gold: <span id="my-gold">0</span></div>
+        <div style="color: #fff;">Skor: <span id="my-score">0</span></div>
+    </div>
+    <div id="leaderboard">
+        <div id="last-winner">Şampiyon: <span>Yok</span></div>
+        <h3>Oyuncu Tablosu</h3>
+        <div id="lb-list"></div>
+    </div>
     <canvas id="gameCanvas"></canvas>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
