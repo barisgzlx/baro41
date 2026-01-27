@@ -14,11 +14,11 @@ let rooms = {
     "ffa3": { players: {}, food: [] }
 };
 
-// Yemleri azaltılmış şekilde oluştur (250 adet)
+// Yem sayısını 250'ye düşürdüm
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<250; i++) {
         rooms[r].food.push({
-            id: i + Math.random(), 
+            id: Math.random(), 
             x: Math.random() * worldSize, 
             y: Math.random() * worldSize,
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
@@ -45,22 +45,20 @@ io.on('connection', (socket) => {
             let p = rooms[room].players[socket.id];
             p.x = data.x; p.y = data.y;
 
-            // YEM YEME VE LİSTEDEN SİLME (Garantili Yöntem)
-            const initialFoodCount = rooms[room].food.length;
+            // YEM YEME KONTROLÜ
+            let ate = false;
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius + 5) {
-                    p.score += 2; 
-                    p.radius += 0.2;
-                    return false; // Yemi sil
+                if (dist < p.radius) {
+                    p.score += 2; p.radius += 0.15;
+                    ate = true;
+                    return false;
                 }
                 return true;
             });
 
-            // Eğer yem yendiyse tüm odaya yeni yem listesini gönder
-            if (rooms[room].food.length !== initialFoodCount) {
-                io.to(room).emit('initFood', rooms[room].food);
-            }
+            // Yem yendiyse listeyi tüm odaya gönder ki yem kaybolsun
+            if (ate) io.to(room).emit('initFood', rooms[room].food);
         }
     });
 
@@ -80,9 +78,7 @@ io.on('connection', (socket) => {
 });
 
 setInterval(() => {
-    Object.keys(rooms).forEach(r => { 
-        io.to(r).emit('updatePlayers', rooms[r].players); 
-    });
+    Object.keys(rooms).forEach(r => { io.to(r).emit('updatePlayers', rooms[r].players); });
 }, 30);
 
 server.listen(process.env.PORT || 3000);
