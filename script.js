@@ -8,17 +8,31 @@ let isPlaying = false;
 let otherPlayers = {};
 let foods = [];
 const worldSize = 3000;
+let mousePos = { x: 0, y: 0 };
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+
+// Pencere boyutu değişince canvas'ı güncelle
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
 
 // Yemleri sunucudan al
 socket.on('initFood', (serverFood) => {
     foods = serverFood;
 });
 
+// Diğer oyuncuları güncelle
 socket.on('updatePlayers', (players) => {
     otherPlayers = players;
+});
+
+// Fare konumunu sürekli kaydet ama hemen gönderme (Donmayı engeller)
+window.addEventListener('mousemove', (e) => {
+    mousePos.x = e.clientX;
+    mousePos.y = e.clientY;
 });
 
 function join(spectate) {
@@ -34,8 +48,31 @@ function join(spectate) {
 
 // ESC Desteği
 window.addEventListener('keydown', (e) => {
-    if (e.key === "Escape") overlay.style.display = 'flex';
+    if (e.key === "Escape") {
+        overlay.style.display = 'flex';
+    }
 });
+
+// OPTİMİZASYON: Saniyede 30 kez veri göndererek donmayı (lag) bitir
+setInterval(() => {
+    if (isPlaying && otherPlayers[socket.id] && overlay.style.display === 'none') {
+        const me = otherPlayers[socket.id];
+        
+        // Merkeze olan uzaklığı hesapla
+        const dx = mousePos.x - canvas.width / 2;
+        const dy = mousePos.y - canvas.height / 2;
+        
+        // Agarz hızı (Yumuşatılmış hareket)
+        const moveX = me.x + (dx * 0.15);
+        const moveY = me.y + (dy * 0.15);
+        
+        // Sınırları aşma
+        socket.emit('move', { 
+            x: Math.max(0, Math.min(worldSize, moveX)), 
+            y: Math.max(0, Math.min(worldSize, moveY)) 
+        });
+    }
+}, 33); 
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -43,15 +80,16 @@ function draw() {
 
     ctx.save();
     if (me) {
+        // Kamerayı karakterin üzerine yumuşakça odakla
         ctx.translate(canvas.width/2 - me.x, canvas.height/2 - me.y);
     }
 
-    // KIRMIZI SINIR
+    // 1. KIRMIZI SINIR
     ctx.strokeStyle = "red";
     ctx.lineWidth = 15;
     ctx.strokeRect(0, 0, worldSize, worldSize);
 
-    // GRID ÇİZGİLERİ
+    // 2. GRID ÇİZGİLERİ
     ctx.strokeStyle = "#111";
     ctx.lineWidth = 1;
     for(let i=0; i<=worldSize; i+=50) {
@@ -59,24 +97,28 @@ function draw() {
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(worldSize, i); ctx.stroke();
     }
 
-    // YEMLERİ ÇİZ
+    // 3. YEMLERİ ÇİZ
     foods.forEach(f => {
         ctx.beginPath();
         ctx.arc(f.x, f.y, 5, 0, Math.PI * 2);
         ctx.fillStyle = f.color;
         ctx.fill();
+        ctx.closePath();
     });
 
-    // OYUNCULARI ÇİZ
+    // 4. OYUNCULARI ÇİZ
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
+        ctx.closePath();
+        
+        // Nickname yazımı
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
-        ctx.font = "bold 15px Arial";
+        ctx.font = `bold ${Math.max(12, p.radius/2)}px Arial`;
         ctx.fillText(p.nick, p.x, p.y + 5);
     });
 
@@ -84,22 +126,4 @@ function draw() {
     requestAnimationFrame(draw);
 }
 
-// HIZLI HAREKET KONTROLÜ
-window.addEventListener('mousemove', (e) => {
-    if (isPlaying && otherPlayers[socket.id] && overlay.style.display === 'none') {
-        const me = otherPlayers[socket.id];
-        const dx = e.clientX - canvas.width / 2;
-        const dy = e.clientY - canvas.height / 2;
-        
-        // Hız çarpanı 0.15 olarak güncellendi
-        const moveX = me.x + (dx * 0.15);
-        const moveY = me.y + (dy * 0.15);
-        
-        socket.emit('move', { 
-            x: Math.max(0, Math.min(worldSize, moveX)), 
-            y: Math.max(0, Math.min(worldSize, moveY)) 
-        });
-    }
-});
-
-draw();
+draw();ff
