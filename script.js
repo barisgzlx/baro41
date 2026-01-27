@@ -5,19 +5,26 @@ const overlay = document.getElementById('overlay');
 const hud = document.getElementById('hud');
 
 let isPlaying = false;
-let myId = null;
 let otherPlayers = {};
-const worldSize = 3000; // Geniş harita alanı
+const worldSize = 3000; 
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// Pencere boyutu değişince canvas'ı güncelle
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
 function join(spectate) {
     const nick = document.getElementById('nick').value || "Adsız";
     const room = document.getElementById('room').value;
+    
     overlay.style.display = 'none';
     hud.style.display = 'block';
     isPlaying = !spectate;
+    
     socket.emit('join', { room, nick, spectate });
 }
 
@@ -39,36 +46,43 @@ function draw() {
     const me = otherPlayers[socket.id];
 
     ctx.save();
+    
     if (me) {
-        // Kamera karakteri takip eder (Karakter ortada kalır)
+        // Kamera karakteri merkeze alır
         ctx.translate(canvas.width/2 - me.x, canvas.height/2 - me.y);
+    } else {
+        // Eğer karakter yoksa (İzle modu veya henüz girilmediyse) haritayı ortala
+        ctx.translate(canvas.width/2 - worldSize/2, canvas.height/2 - worldSize/2);
     }
 
-    // Harita Sınırı (Kırmızı Çizgi)
+    // 1. Harita Sınırı (Kırmızı Çizgi)
     ctx.strokeStyle = "red";
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 10;
     ctx.strokeRect(0, 0, worldSize, worldSize);
 
-    // Kareli Arkaplan (Grid)
+    // 2. Kareli Arkaplan (Grid)
     ctx.strokeStyle = "#111";
     ctx.lineWidth = 1;
     for(let i=0; i<=worldSize; i+=50) {
-        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,worldSize); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(worldSize,i); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, worldSize); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(worldSize, i); ctx.stroke();
     }
 
-    // Oyuncuları Çiz
+    // 3. Oyuncuları Çiz
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
+        
+        // Baloncuk
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
+        ctx.closePath();
         
-        // İsmi Baloncuğun Üzerine Yaz (image_2114f9.png gibi)
+        // Nickname
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
-        ctx.font = "bold 15px Arial";
+        ctx.font = `bold ${Math.max(12, p.radius/2)}px Arial`;
         ctx.fillText(p.nick, p.x, p.y + 5);
     });
 
@@ -76,13 +90,24 @@ function draw() {
     requestAnimationFrame(draw);
 }
 
+// Hareket Kontrolü
 window.addEventListener('mousemove', (e) => {
     if (isPlaying && otherPlayers[socket.id]) {
         const me = otherPlayers[socket.id];
-        // Fare konumunu dünya koordinatlarına çevir
-        const targetX = e.clientX - (canvas.width/2 - me.x);
-        const targetY = e.clientY - (canvas.height/2 - me.y);
-        socket.emit('move', { x: targetX, y: targetY, radius: me.radius });
+        
+        // Fare merkezden ne kadar uzakta?
+        const dx = e.clientX - canvas.width / 2;
+        const dy = e.clientY - canvas.height / 2;
+        
+        // Karakteri fare yönüne doğru yumuşakça kaydır
+        const moveX = me.x + (dx * 0.1);
+        const moveY = me.y + (dy * 0.1);
+        
+        // Harita sınırlarını kontrol et
+        const finalX = Math.max(0, Math.min(worldSize, moveX));
+        const finalY = Math.max(0, Math.min(worldSize, moveY));
+        
+        socket.emit('move', { x: finalX, y: finalY });
     }
 });
 
