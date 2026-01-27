@@ -9,16 +9,15 @@ app.use(express.static(__dirname));
 
 const worldSize = 3000;
 let rooms = { "ffa1": { players: {}, food: [] } };
-let lastWinner = "Henüz Yok";
-let timeLeft = 60; // 1 Dakika
+let lastWinner = "Yok";
+let timeLeft = 60;
 let winStats = {};
 
-// Yemleri oluştur
-for(let i=0; i<200; i++) {
-    rooms["ffa1"].food.push({ id: Math.random(), x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
+// Yemleri tek seferde oluştur
+for(let i=0; i<150; i++) {
+    rooms["ffa1"].food.push({ id: i, x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
 }
 
-// Zamanlayıcı ve Galibiyet Sistemi
 setInterval(() => {
     if (timeLeft > 0) {
         timeLeft--;
@@ -39,12 +38,11 @@ io.on('connection', (socket) => {
     socket.on('join', (data) => {
         socket.currentRoom = "ffa1";
         socket.join("ffa1");
-        // Ölme sorununu engelle: Eğer oyuncu varsa tekrar yaratma
         if (!rooms["ffa1"].players[socket.id] && !data.spectate) {
             rooms["ffa1"].players[socket.id] = {
                 x: worldSize / 2, y: worldSize / 2,
-                score: 100, radius: 45,
-                gold: 500, nick: data.nick || "Baro",
+                score: 100, radius: 45, gold: 500,
+                nick: data.nick || "Baro",
                 color: `hsl(${Math.random() * 360}, 100%, 50%)`
             };
         }
@@ -57,39 +55,22 @@ io.on('connection', (socket) => {
         const p = rooms["ffa1"]?.players[socket.id];
         if (p) {
             p.x = data.x; p.y = data.y;
-            // Yem yeme
+            // Çarpışmaları sadece sunucu kontrol eder (Hile engelleme ve stabilite)
             rooms["ffa1"].food = rooms["ffa1"].food.filter(f => {
-                let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius) { p.score += 1.5; p.radius = Math.sqrt(p.score) * 4.5; return false; }
+                if (Math.hypot(p.x - f.x, p.y - f.y) < p.radius) {
+                    p.score += 2; p.radius = Math.sqrt(p.score) * 4.5;
+                    return false;
+                }
                 return true;
             });
-            // Oyuncu yeme
-            Object.keys(rooms["ffa1"].players).forEach(id => {
-                if (id !== socket.id) {
-                    let other = rooms["ffa1"].players[id];
-                    let dist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
-                    if (dist < p.radius && p.score > other.score * 1.1) {
-                        p.score += other.score; p.radius = Math.sqrt(p.score) * 4.5;
-                        other.score = 100; other.radius = 45; other.x = worldSize/2; other.y = worldSize/2;
-                        io.to(id).emit('respawn');
-                    }
-                }
-            });
         }
-    });
-
-    socket.on('buyScore', () => {
-        const p = rooms["ffa1"]?.players[socket.id];
-        if (p && p.gold >= 100) { p.gold -= 100; p.score += 200; p.radius = Math.sqrt(p.score) * 4.5; }
     });
 
     socket.on('disconnect', () => { delete rooms["ffa1"]?.players[socket.id]; });
 });
 
-// 30 FPS Kilit (Donmayı ve Lagı Önler)
-setInterval(() => { 
-    io.emit('updatePlayers', rooms["ffa1"].players); 
-}, 33);
+// Saniyede 20 Paket (Lagı bitiren en stabil değer)
+setInterval(() => { io.emit('updatePlayers', rooms["ffa1"].players); }, 50);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("30 FPS Sunucu Hazır"));
+server.listen(PORT);
