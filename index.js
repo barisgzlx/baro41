@@ -10,19 +10,14 @@ app.use(express.static(__dirname));
 const worldSize = 3000;
 let rooms = { "ffa1": { players: {}, food: [] }, "ffa2": { players: {}, food: [] } };
 
-// 1 Saatlik Sayaç (3600 saniye)
+// 1 Saatlik Sayaç Sistemi
 let timeLeft = 3600;
 setInterval(() => {
-    if (timeLeft > 0) {
-        timeLeft--;
-        io.emit('timerUpdate', timeLeft);
-    } else {
-        // Süre bittiğinde kazanana bakılabilir, şimdilik resetliyoruz
-        timeLeft = 3600;
-        io.emit('gameFinished', 'Oyun Süresi Doldu!');
-    }
+    if (timeLeft > 0) { timeLeft--; io.emit('timerUpdate', timeLeft); }
+    else { timeLeft = 3600; io.emit('gameFinished', 'Süre Bitti!'); }
 }, 1000);
 
+// Yem Dağıtımı
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<200; i++) {
         rooms[r].food.push({ id: Math.random(), x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
@@ -36,7 +31,7 @@ io.on('connection', (socket) => {
         socket.currentRoom = roomName;
         rooms[roomName].players[socket.id] = {
             x: worldSize / 2, y: worldSize / 2, radius: 30,
-            score: 0, gold: 500, nick: data.nick || "baro",
+            score: 0, gold: 500, nick: data.nick || "Oyuncu",
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
         };
         socket.emit('initFood', rooms[roomName].food);
@@ -57,7 +52,7 @@ io.on('connection', (socket) => {
             });
             if (ate) io.to(room).emit('initFood', rooms[room].food);
 
-            // Oyuncu yeme
+            // Oyuncu Yeme (Büyük Küçüğü Yer)
             Object.keys(rooms[room].players).forEach(id => {
                 if (id !== socket.id) {
                     let other = rooms[room].players[id];
@@ -72,11 +67,16 @@ io.on('connection', (socket) => {
         }
     });
 
+    // GOLD İLE SKOR ALMA AKTİF
     socket.on('buyScore', () => {
         const room = socket.currentRoom;
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
-            if (p.gold >= 100) { p.gold -= 100; p.score += 200; p.radius += 5; }
+            if (p.gold >= 100) { 
+                p.gold -= 100; 
+                p.score += 200; 
+                p.radius += 5; 
+            }
         }
     });
 
