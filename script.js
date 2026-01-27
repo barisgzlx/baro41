@@ -7,7 +7,8 @@ let otherPlayers = {};
 let foods = [];
 const worldSize = 3000;
 let isPlaying = false;
-let myLocalPos = { x: 1500, y: 1500 }; // Yerel konum (Pingi gizler)
+let myLocalPos = { x: 1500, y: 1500 }; 
+let mousePos = { x: 0, y: 0 };
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -15,63 +16,56 @@ canvas.height = window.innerHeight;
 socket.on('initFood', (f) => foods = f);
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
-    // Sunucudan gelen konumu yerel konumla eşitle (çok sapma varsa)
+    // Ping/Zıplama kontrolü
     if (p[socket.id]) {
-        const serverP = p[socket.id];
-        const dist = Math.sqrt((serverP.x - myLocalPos.x)**2 + (serverP.y - myLocalPos.y)**2);
-        if (dist > 50) { // Sadece çok büyük fark varsa ışınla
-            myLocalPos.x = serverP.x;
-            myLocalPos.y = serverP.y;
+        const sP = p[socket.id];
+        const dist = Math.sqrt((sP.x - myLocalPos.x)**2 + (sP.y - myLocalPos.y)**2);
+        if (dist > 100) { // Çok büyük fark varsa senkronla
+            myLocalPos.x = sP.x;
+            myLocalPos.y = sP.y;
         }
     }
 });
 
-window.addEventListener('keydown', (e) => {
-    if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
-    if (e.key.toLowerCase() === 's') socket.emit('buyScore');
-});
-
+// OYNA BUTONUNU ÇALIŞTIRAN KISIM
 function join(spectate) {
+    const nickInput = document.getElementById('nick').value || "baro";
+    const roomSelect = document.getElementById('room').value; // HTML'deki ID ile aynı olmalı
+    
     overlay.style.display = 'none';
     isPlaying = true;
-    socket.emit('join', { 
-        room: document.getElementById('room').value, 
-        nick: document.getElementById('nick').value || "baro", 
-        spectate 
-    });
+    socket.emit('join', { room: roomSelect, nick: nickInput, spectate: spectate });
 }
 
-// PINGİ SIFIRA İNDİREN HAREKET MANTIĞI
+window.addEventListener('mousemove', (e) => {
+    mousePos.x = e.clientX;
+    mousePos.y = e.clientY;
+});
+
+// Yerel Hareket Döngüsü (Hassas Fare ve Sıfır Gecikme)
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
-        const me = otherPlayers[socket.id];
-        // Fare hedefini hesapla
-        const targetX = myLocalPos.x + (mousePos.x - canvas.width / 2);
-        const targetY = myLocalPos.y + (mousePos.y - canvas.height / 2);
-        
-        let dx = targetX - myLocalPos.x;
-        let dy = targetY - myLocalPos.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
+        const dx = mousePos.x - canvas.width / 2;
+        const dy = mousePos.y - canvas.height / 2;
+        const dist = Math.sqrt(dx*dx + dy*dy);
         
         if (dist > 5) {
-            let speed = 4;
-            myLocalPos.x += (dx/dist) * speed;
-            myLocalPos.y += (dy/dist) * speed;
+            const speed = 4;
+            myLocalPos.x += (dx / dist) * speed;
+            myLocalPos.y += (dy / dist) * speed;
         }
 
         // Sınırlar
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
 
-        // Sunucuya sadece konumu bildir
         socket.emit('move', { x: myLocalPos.x, y: myLocalPos.y });
     }
-}, 16); // 60 FPS Yerel Hareket
+}, 16);
 
-let mousePos = { x: 0, y: 0 };
-window.addEventListener('mousemove', (e) => {
-    mousePos.x = e.clientX;
-    mousePos.y = e.clientY;
+window.addEventListener('keydown', (e) => {
+    if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
+    if (e.key.toLowerCase() === 's') socket.emit('buyScore');
 });
 
 function draw() {
@@ -79,16 +73,10 @@ function draw() {
     const me = otherPlayers[socket.id];
 
     ctx.save();
-    // Kamerayı sunucu verisine değil, kendi yerel konumuna (myLocalPos) odakla!
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Grid ve Kırmızı Sınır
+    // Kırmızı Sınırlar
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
-    ctx.strokeStyle = "#111"; ctx.lineWidth = 1;
-    for(let i=0; i<=worldSize; i+=50) {
-        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, worldSize); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(worldSize, i); ctx.stroke();
-    }
 
     // Yemler
     foods.forEach(f => {
@@ -99,17 +87,24 @@ function draw() {
     // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
-        const displayX = (id === socket.id) ? myLocalPos.x : p.x;
-        const displayY = (id === socket.id) ? myLocalPos.y : p.y;
-
+        const drawX = (id === socket.id) ? myLocalPos.x : p.x;
+        const drawY = (id === socket.id) ? myLocalPos.y : p.y;
+        
         ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(displayX, displayY, p.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(drawX, drawY, p.radius, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.font = "bold 14px Arial";
-        ctx.fillText(p.nick, displayX, displayY + 5);
+        ctx.fillText(p.nick, drawX, drawY + 5);
     });
 
     ctx.restore();
 
-    // HUD: Gold ve Skor
+    // HUD
     if (me) {
+        ctx.fillStyle = "yellow"; ctx.font = "bold 22px Arial";
+        ctx.fillText(`Gold: ${me.gold}`, 20, 40);
+        ctx.fillStyle = "white";
+        ctx.fillText(`Skor: ${Math.floor(me.score)}`, 20, 70);
+    }
+    requestAnimationFrame(draw);
+}
+draw();
