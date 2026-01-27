@@ -7,17 +7,16 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-const worldSize = 4000;
+const worldSize = 3000;
 let rooms = { "ffa1": { players: {}, food: [] } };
-let lastWinner = "Henüz Yok";
-let timeLeft = 3600;
+let lastWinner = "Yok";
+let timeLeft = 60; // 1 Dakika [Yeni Ayar]
 
-// Yemleri Başlat
-for(let i=0; i<300; i++) {
+// Başlangıç Yemleri
+for(let i=0; i<200; i++) {
     rooms["ffa1"].food.push({ id: Math.random(), x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
 }
 
-// Sayaç ve Galibiyet
 setInterval(() => {
     if (timeLeft > 0) {
         timeLeft--;
@@ -28,7 +27,7 @@ setInterval(() => {
             lastWinner = players.sort((a,b) => b.score - a.score)[0].nick;
             io.emit('gameFinished', { winner: lastWinner });
         }
-        timeLeft = 3600;
+        timeLeft = 60; // Geri sayımı sıfırla
     }
 }, 1000);
 
@@ -36,7 +35,9 @@ io.on('connection', (socket) => {
     socket.on('join', (data) => {
         socket.currentRoom = "ffa1";
         socket.join("ffa1");
-        if (!data.spectate) {
+        
+        // Eğer oyuncu zaten varsa, tekrar oluşturma (Ölme sorununu çözer)
+        if (!rooms["ffa1"].players[socket.id] && !data.spectate) {
             rooms["ffa1"].players[socket.id] = {
                 x: worldSize / 2, y: worldSize / 2,
                 score: 100, radius: 45,
@@ -52,7 +53,7 @@ io.on('connection', (socket) => {
         const p = rooms["ffa1"]?.players[socket.id];
         if (p) {
             p.x = data.x; p.y = data.y;
-            // Yem yeme (Agarz dengesi)
+            // Yem yeme
             rooms["ffa1"].food = rooms["ffa1"].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
                 if (dist < p.radius) {
@@ -91,7 +92,8 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => { delete rooms["ffa1"].players[socket.id]; });
 });
 
-setInterval(() => { io.emit('updatePlayers', rooms["ffa1"].players); }, 35);
+// Trafiği azaltmak için güncellemeyi 40ms yaptık (Kasmayı engeller)
+setInterval(() => { io.emit('updatePlayers', rooms["ffa1"].players); }, 40);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log("Sunucu hazir: " + PORT); });
+server.listen(PORT);
