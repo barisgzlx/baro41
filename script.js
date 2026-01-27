@@ -7,7 +7,7 @@ const timerEl = document.getElementById('timer');
 
 let otherPlayers = {};
 let foods = [];
-let myLocalPos = { x: 1500, y: 1500 }; 
+let myPos = { x: 1500, y: 1500 }; 
 let isPlaying = false;
 let isSpectating = false;
 let zoom = 1;
@@ -30,11 +30,10 @@ function toggleWinPanel() {
 }
 
 socket.on('gameFinished', (data) => { alert("Süre Bitti! Şampiyon: " + data.winner); location.reload(); });
-socket.on('respawn', () => { alert("Yenildin!"); isPlaying = false; overlay.style.display = 'flex'; });
+socket.on('respawn', () => { isPlaying = false; overlay.style.display = 'flex'; });
 
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = 'flex';
-    if (e.key.toLowerCase() === 's') socket.emit('buyScore');
 });
 
 socket.on('timerUpdate', (sec) => {
@@ -49,9 +48,6 @@ socket.on('updatePlayers', (p) => {
         document.getElementById('my-gold').innerText = me.gold;
         document.getElementById('my-score').innerText = Math.floor(me.score);
         zoom = Math.pow(Math.min(1, 45 / me.radius), 0.3);
-    } else if (isSpectating) {
-        let sorted = Object.values(p).sort((a,b) => b.score - a.score);
-        if(sorted[0]) { myLocalPos.x = sorted[0].x; myLocalPos.y = sorted[0].y; zoom = Math.pow(Math.min(1, 45 / sorted[0].radius), 0.3); }
     }
     let html = "";
     Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10).forEach((pl, i) => {
@@ -65,46 +61,61 @@ function join(spec) {
     socket.emit('join', { nick: document.getElementById('nick').value || "Baro", spectate: spec });
     overlay.style.display = 'none';
     isPlaying = true;
+    requestAnimationFrame(gameLoop);
 }
 
-// 30 FPS Hareket Döngüsü
-setInterval(() => {
-    if(isPlaying && !isSpectating && otherPlayers[socket.id]) {
+let mousePos = { x: canvas.width/2, y: canvas.height/2 };
+window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
+
+// Ana Oyun Döngüsü (Donmayı engelleyen akış)
+function gameLoop() {
+    if(!isPlaying) return;
+
+    if(!isSpectating && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
-        const dist = Math.sqrt(dx*dx + dy*dy);
+        const dist = Math.hypot(dx, dy);
+        
         if (dist > 5) {
-            let speed = 5.2 * Math.pow(0.93, ( (otherPlayers[socket.id].radius) - 45) / 50);
-            myLocalPos.x += (dx / dist) * Math.max(1.5, speed);
-            myLocalPos.y += (dy / dist) * Math.max(1.5, speed);
+            let speed = 4.5 * Math.pow(0.93, (otherPlayers[socket.id].radius - 45) / 50);
+            myPos.x += (dx / dist) * speed;
+            myPos.y += (dy / dist) * speed;
         }
-        myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
-        myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
-        socket.emit('move', { x: myLocalPos.x, y: myLocalPos.y });
+        myPos.x = Math.max(0, Math.min(worldSize, myPos.x));
+        myPos.y = Math.max(0, Math.min(worldSize, myPos.y));
+        socket.emit('move', { x: myPos.x, y: myPos.y });
     }
-}, 33);
 
-let mousePos = { x: 0, y: 0 };
-window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
+    draw();
+    requestAnimationFrame(gameLoop);
+}
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!isPlaying) { requestAnimationFrame(draw); return; }
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(zoom, zoom);
-    ctx.translate(-myLocalPos.x, -myLocalPos.y);
-    // Kırmızı Sınır [Geri Getirildi]
-    ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
-    foods.forEach(f => { ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, 10, 0, Math.PI * 2); ctx.fill(); });
+    ctx.translate(-myPos.x, -myPos.y);
+
+    // Kırmızı Sınır
+    ctx.strokeStyle = "red"; ctx.lineWidth = 15;
+    ctx.strokeRect(0, 0, worldSize, worldSize);
+
+    // Yemler
+    foods.forEach(f => {
+        ctx.fillStyle = f.color;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 10, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
-        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.textAlign = "center"; 
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "white"; ctx.textAlign = "center";
         ctx.font = `bold ${Math.max(14, p.radius/2.5)}px Arial`;
         ctx.fillText(p.nick, p.x, p.y + (p.radius/10));
     });
+
     ctx.restore();
-    requestAnimationFrame(draw);
 }
-draw();
