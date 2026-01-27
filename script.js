@@ -16,25 +16,21 @@ canvas.height = window.innerHeight;
 socket.on('initFood', (f) => foods = f);
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
-    // Ping/Zıplama kontrolü
     if (p[socket.id]) {
         const sP = p[socket.id];
         const dist = Math.sqrt((sP.x - myLocalPos.x)**2 + (sP.y - myLocalPos.y)**2);
-        if (dist > 100) { // Çok büyük fark varsa senkronla
-            myLocalPos.x = sP.x;
-            myLocalPos.y = sP.y;
-        }
+        if (dist > 100) { myLocalPos.x = sP.x; myLocalPos.y = sP.y; }
     }
 });
 
-// OYNA BUTONUNU ÇALIŞTIRAN KISIM
+// OYNA BUTONU TAMİRİ
 function join(spectate) {
-    const nickInput = document.getElementById('nick').value || "baro";
-    const roomSelect = document.getElementById('room').value; // HTML'deki ID ile aynı olmalı
+    const nickVal = document.getElementById('nick').value || "baro";
+    const roomVal = document.getElementById('room').value; // FFA-1 veya FFA-2 gelir
     
     overlay.style.display = 'none';
     isPlaying = true;
-    socket.emit('join', { room: roomSelect, nick: nickInput, spectate: spectate });
+    socket.emit('join', { room: roomVal, nick: nickVal, spectate: spectate });
 }
 
 window.addEventListener('mousemove', (e) => {
@@ -42,23 +38,19 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// Yerel Hareket Döngüsü (Hassas Fare ve Sıfır Gecikme)
+// Gecikmesiz Hareket
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        
         if (dist > 5) {
             const speed = 4;
             myLocalPos.x += (dx / dist) * speed;
             myLocalPos.y += (dy / dist) * speed;
         }
-
-        // Sınırlar
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
-
         socket.emit('move', { x: myLocalPos.x, y: myLocalPos.y });
     }
 }, 16);
@@ -75,9 +67,9 @@ function draw() {
     ctx.save();
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Kırmızı Sınırlar
+    // Grid ve Sınır
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
-
+    
     // Yemler
     foods.forEach(f => {
         ctx.fillStyle = f.color;
@@ -87,13 +79,12 @@ function draw() {
     // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
-        const drawX = (id === socket.id) ? myLocalPos.x : p.x;
-        const drawY = (id === socket.id) ? myLocalPos.y : p.y;
-        
+        const dX = (id === socket.id) ? myLocalPos.x : p.x;
+        const dY = (id === socket.id) ? myLocalPos.y : p.y;
         ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(drawX, drawY, p.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(dX, dY, p.radius, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.fillText(p.nick, drawX, drawY + 5);
+        ctx.fillText(p.nick, dX, dY + 5);
     });
 
     ctx.restore();
