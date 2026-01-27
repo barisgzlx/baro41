@@ -3,6 +3,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
 const lbList = document.getElementById('lb-list');
+const timerEl = document.getElementById('timer');
+const roomLabel = document.getElementById('room-name');
 
 let otherPlayers = {};
 let foods = [];
@@ -17,10 +19,23 @@ canvas.height = window.innerHeight;
 socket.on('initFood', (f) => { foods = f; });
 socket.on('respawn', () => { myLocalPos = { x: 1500, y: 1500 }; alert("Yenildin!"); });
 
+// Sayaç Güncelleme
+socket.on('timerUpdate', (seconds) => {
+    let h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    let m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    let s = (seconds % 60).toString().padStart(2, '0');
+    timerEl.innerText = `${h}:${m}:${s}`;
+});
+
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
+    const me = p[socket.id];
     
-    // TABLOYU DOLDUR
+    if (me) {
+        document.getElementById('my-gold').innerText = me.gold;
+        document.getElementById('my-score').innerText = Math.floor(me.score);
+    }
+
     if (lbList) {
         let listHTML = "";
         const sorted = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
@@ -31,20 +46,16 @@ socket.on('updatePlayers', (p) => {
     }
 });
 
-window.addEventListener('keydown', (e) => {
-    if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
-    if (e.key.toLowerCase() === 's') socket.emit('buyScore');
-});
-
 function join() {
+    const rVal = document.getElementById('room').value;
+    roomLabel.innerText = rVal.toUpperCase();
     overlay.style.display = 'none';
     isPlaying = true;
-    socket.emit('join', { nick: document.getElementById('nick').value, room: document.getElementById('room').value });
+    socket.emit('join', { nick: document.getElementById('nick').value, room: rVal });
 }
 
 window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
 
-// Hareket Döngüsü (Titreşimi Keser)
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
@@ -66,17 +77,13 @@ function draw() {
 
     ctx.save();
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
-    
-    // Sınır
     ctx.strokeStyle = "red"; ctx.lineWidth = 10; ctx.strokeRect(0, 0, worldSize, worldSize);
 
-    // Yemler
     foods.forEach(f => {
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         const rX = (id === socket.id) ? myLocalPos.x : p.x;
