@@ -8,7 +8,7 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
-// Agarz Oda Yapısı
+// Agarz Oda Sistemi ve Yem Deposu
 let rooms = {
     ffa1: { players: {}, food: [] },
     ffa2: { players: {}, food: [] },
@@ -17,7 +17,7 @@ let rooms = {
     ffa5: { players: {}, food: [] }
 };
 
-// Odalara başlangıç yemlerini serp
+// Her oda için başlangıç yemlerini oluştur
 Object.keys(rooms).forEach(roomName => {
     for(let i=0; i<400; i++) {
         rooms[roomName].food.push({
@@ -30,10 +30,10 @@ Object.keys(rooms).forEach(roomName => {
 });
 
 io.on('connection', (socket) => {
-    console.log('Bağlantı başarılı:', socket.id);
+    console.log('Oyuncu bağlandı:', socket.id);
 
     socket.on('join', (data) => {
-        // Eski odadan güvenli çıkış
+        // Eski odadan temizle
         if (socket.currentRoom && rooms[socket.currentRoom]) {
             delete rooms[socket.currentRoom].players[socket.id];
             socket.leave(socket.currentRoom);
@@ -42,35 +42,34 @@ io.on('connection', (socket) => {
         socket.join(data.room);
         socket.currentRoom = data.room;
 
-        // Karakteri oluştur (Eğer zaten yoksa)
+        // Karakteri oluştur veya mevcut olanı koru (ESC basınca ölmemesi için)
         if (!data.spectate && !rooms[data.room].players[socket.id]) {
             rooms[data.room].players[socket.id] = {
-                x: Math.random() * (worldSize - 200) + 100,
-                y: Math.random() * (worldSize - 200) + 100,
+                x: worldSize / 2,
+                y: worldSize / 2,
                 radius: 30,
                 color: `hsl(${Math.random() * 360}, 100%, 50%)`,
                 nick: data.nick || "baro"
             };
         }
 
-        // Katılan kişiye o odanın yemlerini ve oyuncularını gönder
+        // Katılan kişiye o odadaki yemleri ve oyuncu listesini gönder
         socket.emit('initFood', rooms[data.room].food);
         io.to(data.room).emit('updatePlayers', rooms[data.room].players);
     });
 
+    // KRİTİK: Donmaları engelleyen hareket senkronizasyonu
     socket.on('move', (data) => {
         const room = socket.currentRoom;
         if (room && rooms[room] && rooms[room].players[socket.id]) {
             let p = rooms[room].players[socket.id];
             
-            // Konumu güncelle
+            // Yeni koordinatları sunucuya işle
             p.x = data.x;
             p.y = data.y;
 
-            // OPTİMİZASYON: Sadece o odadaki diğer kişilere güncel listeyi yayınla
-            socket.to(room).emit('updatePlayers', rooms[room].players);
-            // Kendi ekranını da güncellemesi için kendine de gönder
-            socket.emit('updatePlayers', rooms[room].players);
+            // Sadece bu odadaki kişilere güncel konumları gönder (Trafik tasarrufu)
+            io.to(room).emit('updatePlayers', rooms[room].players);
         }
     });
 
@@ -85,5 +84,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server ${PORT} portunda akıcı şekilde çalışıyor.`);
+    console.log(`Agarz Sunucusu ${PORT} portunda pürüzsüz çalışıyor...`);
 });
