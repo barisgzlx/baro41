@@ -7,19 +7,19 @@ const timerEl = document.getElementById('timer');
 
 let otherPlayers = {};
 let foods = [];
-let myLocalPos = { x: 2000, y: 2000 }; 
+let myLocalPos = { x: 1500, y: 1500 }; 
 let isPlaying = false;
 let isSpectating = false;
 let zoom = 1;
-const worldSize = 4000;
+const worldSize = 3000;
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 socket.on('initFood', (f) => { foods = f; });
 socket.on('initWinner', (w) => { document.querySelector('#last-winner span').innerText = w; });
-socket.on('gameFinished', (data) => { alert("Şampiyon: " + data.winner); location.reload(); });
-socket.on('respawn', () => { alert("Yenildin! Tekrar doğuyorsun."); });
+socket.on('gameFinished', (data) => { alert("Yeni Şampiyon: " + data.winner); location.reload(); });
+socket.on('respawn', () => { alert("Yenildin!"); });
 
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = 'flex';
@@ -42,13 +42,13 @@ socket.on('updatePlayers', (p) => {
         let sorted = Object.values(p).sort((a,b) => b.score - a.score);
         if(sorted[0]) { myLocalPos.x = sorted[0].x; myLocalPos.y = sorted[0].y; zoom = Math.pow(Math.min(1, 45 / sorted[0].radius), 0.3); }
     }
-    if (lbList) {
-        let html = "";
-        Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10).forEach((pl, i) => {
-            html += `<div><span>${i+1}. ${pl.nick}</span> <b>${Math.floor(pl.score)}</b></div>`;
-        });
-        lbList.innerHTML = html;
-    }
+    
+    // Tabloyu saniyede 1 kez güncelle (Kasmayı engeller)
+    let html = "";
+    Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10).forEach((pl, i) => {
+        html += `<div><span>${i+1}. ${pl.nick}</span> <b>${Math.floor(pl.score)}</b></div>`;
+    });
+    lbList.innerHTML = html;
 });
 
 function join(spec) {
@@ -78,16 +78,24 @@ window.addEventListener('mousemove', (e) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!isPlaying) { requestAnimationFrame(draw); return; }
+
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(zoom, zoom);
     ctx.translate(-myLocalPos.x, -myLocalPos.y);
-    ctx.strokeStyle = "#222"; ctx.lineWidth = 2;
-    for(let i=0; i<=worldSize; i+=100){
-        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,worldSize); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(worldSize,i); ctx.stroke();
+
+    // Kırmızı Sınır Çizgisi [Geri Getirildi]
+    ctx.strokeStyle = "red"; ctx.lineWidth = 15;
+    ctx.strokeRect(0, 0, worldSize, worldSize);
+
+    // Yemler
+    for(let i=0; i<foods.length; i++) {
+        let f = foods[i];
+        ctx.fillStyle = f.color;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 10, 0, Math.PI * 2); ctx.fill();
     }
-    foods.forEach(f => { ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, 10, 0, Math.PI * 2); ctx.fill(); });
+
+    // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         ctx.fillStyle = p.color;
