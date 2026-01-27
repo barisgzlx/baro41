@@ -14,11 +14,11 @@ let rooms = {
     "ffa3": { players: {}, food: [] }
 };
 
-// Yem sayısını 200'e düşürdüm (Daha az yük, daha hızlı senkron)
+// Yemleri oluştur (200 adet)
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<200; i++) {
         rooms[r].food.push({
-            id: Math.random().toString(36).substr(2, 9), 
+            id: Math.random(), 
             x: Math.random() * worldSize, 
             y: Math.random() * worldSize,
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
@@ -45,20 +45,37 @@ io.on('connection', (socket) => {
             let p = rooms[room].players[socket.id];
             p.x = data.x; p.y = data.y;
 
-            // YEM YEME SİSTEMİ - ANLIK SİLME
-            let ateFood = false;
+            // 1. YEM YEME KONTROLÜ
+            let ate = false;
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
                 if (dist < p.radius) {
                     p.score += 2; p.radius += 0.15;
-                    ateFood = true;
-                    return false;
+                    ate = true; return false;
                 }
                 return true;
             });
+            if (ate) io.to(room).emit('initFood', rooms[room].food);
 
-            // Yem yendiyse tüm odaya yeni listeyi bas
-            if (ateFood) io.to(room).emit('initFood', rooms[room].food);
+            // 2. OYUNCU YEME KONTROLÜ (Büyük Küçüğü Yer)
+            Object.keys(rooms[room].players).forEach(otherId => {
+                if (otherId !== socket.id) {
+                    let other = rooms[room].players[otherId];
+                    let dist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
+                    
+                    // Eğer ben ondan %10 daha büyüksem ve değdiysem onu yerim
+                    if (dist < p.radius && p.score > other.score * 1.1) {
+                        p.score += other.score;
+                        p.radius += other.radius * 0.5;
+                        // Yenen oyuncuyu başlangıç noktasına at ve skorunu sıfırla
+                        other.x = worldSize / 2;
+                        other.y = worldSize / 2;
+                        other.score = 0;
+                        other.radius = 30;
+                        io.to(otherId).emit('respawn'); // İstemciye ölme sinyali
+                    }
+                }
+            });
         }
     });
 
@@ -79,6 +96,6 @@ io.on('connection', (socket) => {
 
 setInterval(() => {
     Object.keys(rooms).forEach(r => { io.to(r).emit('updatePlayers', rooms[r].players); });
-}, 35); // Paket trafiğini rahatlatmak için 35ms
+}, 30);
 
 server.listen(process.env.PORT || 3000);
