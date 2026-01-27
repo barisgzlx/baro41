@@ -7,65 +7,81 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-// Agarz Oda Sistemi
-let rooms = { ffa1: {}, ffa2: {}, ffa3: {}, ffa4: {}, ffa5: {} };
+const worldSize = 3000;
+// Agarz Odaları ve Yem Deposu
+let rooms = {
+    ffa1: { players: {}, food: [] },
+    ffa2: { players: {}, food: [] },
+    ffa3: { players: {}, food: [] },
+    ffa4: { players: {}, food: [] },
+    ffa5: { players: {}, food: [] }
+};
+
+// Her odaya başlangıç yemlerini ekle
+Object.keys(rooms).forEach(roomName => {
+    for(let i=0; i<400; i++) {
+        rooms[roomName].food.push({
+            id: i,
+            x: Math.random() * worldSize,
+            y: Math.random() * worldSize,
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`
+        });
+    }
+});
 
 io.on('connection', (socket) => {
-    console.log('Yeni bağlantı:', socket.id);
+    console.log('Oyuncu bağlandı:', socket.id);
 
     socket.on('join', (data) => {
-        // Eğer oyuncu oda değiştirdiyse eski odadan sil
-        if (socket.currentRoom && socket.currentRoom !== data.room) {
-            if (rooms[socket.currentRoom]) {
-                delete rooms[socket.currentRoom][socket.id];
-                io.to(socket.currentRoom).emit('updatePlayers', rooms[socket.currentRoom]);
-            }
+        // Eski odadan temizle
+        if (socket.currentRoom && rooms[socket.currentRoom]) {
+            delete rooms[socket.currentRoom].players[socket.id];
             socket.leave(socket.currentRoom);
         }
 
         socket.join(data.room);
         socket.currentRoom = data.room;
 
-        // KRİTİK NOKTA: Eğer oyuncu zaten bu odadaysa yeniden oluşturma (Ölmez)
-        if (!data.spectate && rooms[data.room] && !rooms[data.room][socket.id]) {
-            rooms[data.room][socket.id] = {
-                x: Math.random() * 2500 + 250,
-                y: Math.random() * 2500 + 250,
-                radius: 30, // Başlangıç boyutu
-                color: `hsl(${Math.random() * 360}, 100%, 50%)`, // Rastgele renk
-                nick: data.nick || "Adsız"
+        // Karakteri oluştur veya mevcut karakteri koru
+        if (!data.spectate && !rooms[data.room].players[socket.id]) {
+            rooms[data.room].players[socket.id] = {
+                x: Math.random() * (worldSize - 100) + 50,
+                y: Math.random() * (worldSize - 100) + 50,
+                radius: 30,
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                nick: data.nick || "baro"
             };
         }
 
-        // Güncel oyuncu listesini odaya gönder
-        if (rooms[data.room]) {
-            io.to(data.room).emit('updatePlayers', rooms[data.room]);
-        }
+        // Oyuncuya o odadaki yemleri gönder
+        socket.emit('initFood', rooms[data.room].food);
+        io.to(data.room).emit('updatePlayers', rooms[data.room].players);
     });
 
     socket.on('move', (data) => {
         const room = socket.currentRoom;
-        if (room && rooms[room] && rooms[room][socket.id]) {
-            // Karakterin konumunu güncelle
-            rooms[room][socket.id].x = data.x;
-            rooms[room][socket.id].y = data.y;
+        if (room && rooms[room] && rooms[room].players[socket.id]) {
+            let p = rooms[room].players[socket.id];
             
-            // Sadece o odadaki oyunculara veriyi bas
-            io.to(room).emit('updatePlayers', rooms[room]);
+            // Hız ve sınır kontrolü
+            p.x = data.x;
+            p.y = data.y;
+
+            // Diğer oyunculara güncel konumları bas
+            io.to(room).emit('updatePlayers', rooms[room].players);
         }
     });
 
     socket.on('disconnect', () => {
         const room = socket.currentRoom;
-        if (room && rooms[room] && rooms[room][socket.id]) {
-            delete rooms[room][socket.id];
-            io.to(room).emit('updatePlayers', rooms[room]);
+        if (room && rooms[room] && rooms[room].players[socket.id]) {
+            delete rooms[room].players[socket.id];
+            io.to(room).emit('updatePlayers', rooms[room].players);
         }
-        console.log('Bağlantı kesildi:', socket.id);
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Sunucu ${PORT} portunda çalışıyor...`);
+    console.log(`Agarz Sunucusu Port:${PORT} üzerinde aktif!`);
 });
