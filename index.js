@@ -9,29 +9,22 @@ app.use(express.static(__dirname));
 
 const worldSize = 3000;
 let rooms = { "ffa1": { players: {}, food: [] } };
-let lastWinner = "Yok";
 let timeLeft = 60;
 
-// Yemleri oluştur
-for(let i=0; i<150; i++) {
+for(let i=0; i<120; i++) {
     rooms["ffa1"].food.push({ id: i, x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
 }
 
 io.on('connection', (socket) => {
     socket.on('join', (data) => {
         socket.join("ffa1");
-        if (!rooms["ffa1"].players[socket.id] && !data.spectate) {
+        if (!rooms["ffa1"].players[socket.id]) {
             rooms["ffa1"].players[socket.id] = {
-                id: socket.id, 
-                x: worldSize / 2, 
-                y: worldSize / 2,
-                score: 100, 
-                radius: 22, // Başlangıç boyutu küçültüldü
-                nick: data.nick || "Baro",
+                id: socket.id, x: worldSize/2, y: worldSize/2,
+                score: 100, radius: 22, nick: data.nick || "Baro",
                 color: `hsl(${Math.random() * 360}, 100%, 50%)`
             };
         }
-        socket.emit('initFood', rooms["ffa1"].food);
     });
 
     socket.on('move', (data) => {
@@ -40,9 +33,8 @@ io.on('connection', (socket) => {
             p.x = data.x; p.y = data.y;
             rooms["ffa1"].food = rooms["ffa1"].food.filter(f => {
                 if (Math.hypot(p.x - f.x, p.y - f.y) < p.radius) {
-                    // BÜYÜME KÜÇÜLTÜLDÜ
-                    p.score += 0.8; 
-                    p.radius = Math.sqrt(p.score) * 2.2; 
+                    p.score += 0.7; // Büyüme hızı düşürüldü
+                    p.radius = Math.sqrt(p.score) * 2.1; // Boyut çarpanı düşürüldü
                     return false;
                 }
                 return true;
@@ -52,19 +44,14 @@ io.on('connection', (socket) => {
 
     socket.on('buyScore', () => {
         const p = rooms["ffa1"]?.players[socket.id];
-        if (p) {
-            // Gold basınca büyüme miktarı düşürüldü
-            p.score += 100; 
-            p.radius = Math.sqrt(p.score) * 2.2;
-        }
+        if (p) { p.score += 100; p.radius = Math.sqrt(p.score) * 2.1; }
     });
 
     socket.on('disconnect', () => { delete rooms["ffa1"]?.players[socket.id]; });
 });
 
-// Akıcı oyun için 20 FPS veri gönderimi
-setInterval(() => { io.emit('updatePlayers', rooms["ffa1"].players); }, 50);
-setInterval(() => { if(timeLeft > 0) { timeLeft--; io.emit('timerUpdate', timeLeft); } else { timeLeft = 60; } }, 1000);
+setInterval(() => { io.emit('updatePlayers', rooms["ffa1"].players); }, 50); // 20 FPS stabil akış
+setInterval(() => { if(timeLeft > 0) timeLeft--; else timeLeft = 60; io.emit('timerUpdate', timeLeft); }, 1000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT);
