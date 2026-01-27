@@ -18,7 +18,7 @@ canvas.height = window.innerHeight;
 
 function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
 
-// ESC ve Gold Tuşu
+// ESC ve Gold Basma
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = 'flex';
     if (e.key.toLowerCase() === 's') socket.emit('buyScore');
@@ -27,14 +27,16 @@ window.addEventListener('keydown', (e) => {
 socket.on('updatePlayers', (serverPlayers) => {
     players = serverPlayers;
     
-    // LİDERLİK TABLOSU DÜZELTME
+    // TABLO GÜNCELLEME (İsimlerin görünmesi için)
     if(lbList) {
         let sorted = Object.values(players).sort((a, b) => b.score - a.score).slice(0, 10);
         let html = "";
         sorted.forEach((pl, i) => {
-            let name = pl.nick || "Adsız";
+            let name = pl.nick || "Baro";
             let color = (pl.id === socket.id) ? "#ffcc00" : "white";
-            html += `<div style="color: ${color}">${i + 1}. ${name} - ${Math.floor(pl.score)}</div>`;
+            html += `<div style="color: ${color}; font-weight: ${pl.id === socket.id ? 'bold' : 'normal'}">
+                ${i + 1}. ${name} ${Math.floor(pl.score)}
+            </div>`;
         });
         lbList.innerHTML = html;
     }
@@ -58,8 +60,8 @@ function gameLoop() {
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.hypot(dx, dy);
         if (dist > 5) {
-            // Dengelenmiş Hız
-            let speed = 3.8 * Math.pow(0.93, (me.radius - 22) / 50);
+            // Dengelenmiş Hız (Kasmayı önler)
+            let speed = 3.6 * Math.pow(0.93, (me.radius - 22) / 50);
             myPos.x += (dx / dist) * speed;
             myPos.y += (dy / dist) * speed;
         }
@@ -89,7 +91,10 @@ function draw() {
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(zoom, zoom);
     ctx.translate(-myPos.x, -myPos.y);
+    
+    // Kırmızı Sınır
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
+    
     foods.forEach(f => {
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(f.x, f.y, 10, 0, Math.PI * 2); ctx.fill();
@@ -106,4 +111,9 @@ function draw() {
 }
 
 window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
-function join() { isPlaying = true; overlay.style.display = 'none'; socket.emit('join', { nick: document.getElementById('nick').value || "Baro" }); requestAnimationFrame(gameLoop); }
+function join() { 
+    isPlaying = true; 
+    overlay.style.display = 'none'; 
+    socket.emit('join', { nick: document.getElementById('nick').value || "Baro" }); 
+    requestAnimationFrame(gameLoop); 
+}
