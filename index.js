@@ -1,38 +1,16 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
-
-app.use(express.static(__dirname));
-
-const worldSize = 3000;
-let rooms = { "ffa1": { players: {}, food: [] }, "ffa2": { players: {}, food: [] } };
-
-// 1 Saatlik Sayaç Sistemi
-let timeLeft = 3600;
-setInterval(() => {
-    if (timeLeft > 0) { timeLeft--; io.emit('timerUpdate', timeLeft); }
-    else { timeLeft = 3600; io.emit('gameFinished', 'Süre Bitti!'); }
-}, 1000);
-
-// Yem Dağıtımı
-Object.keys(rooms).forEach(r => {
-    for(let i=0; i<200; i++) {
-        rooms[r].food.push({ id: Math.random(), x: Math.random() * worldSize, y: Math.random() * worldSize, color: `hsl(${Math.random() * 360}, 100%, 50%)` });
-    }
-});
+// ... (üst kısımdaki sayaç ve room tanımları aynı kalsın)
 
 io.on('connection', (socket) => {
     socket.on('join', (data) => {
         const roomName = data.room || "ffa1";
         socket.join(roomName);
         socket.currentRoom = roomName;
-        // BAŞLANGIÇ: 100 SKOR VE 45 RADIUS [Değiştirildi]
+        // Başlangıç değerleri
         rooms[roomName].players[socket.id] = {
-            x: worldSize / 2, y: worldSize / 2, radius: 45, 
-            score: 100, gold: 500, nick: data.nick || "Oyuncu",
+            x: worldSize / 2, y: worldSize / 2, 
+            score: 100, 
+            radius: 45, // sqrt(100) * 4.5 gibi bir oran
+            gold: 500, nick: data.nick || "Oyuncu",
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
         };
         socket.emit('initFood', rooms[roomName].food);
@@ -50,29 +28,24 @@ io.on('connection', (socket) => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
                 if (dist < p.radius) { 
                     p.score += 2; 
-                    p.radius += 0.05; // Yem yiyince büyüme hızı düşürüldü
+                    // AGARZ FORMÜLÜ: Boyut skorun kareköküyle artar
+                    p.radius = Math.sqrt(p.score) * 4.5; 
                     ate = true; return false; 
                 }
                 return true;
             });
             if (ate) io.to(room).emit('initFood', rooms[room].food);
 
-            // OYUNCU YEME MANTIĞI [Düzenlendi]
+            // Oyuncu Yeme
             Object.keys(rooms[room].players).forEach(id => {
                 if (id !== socket.id) {
                     let other = rooms[room].players[id];
                     let dist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
-                    
-                    // Büyük küçüğü yerse
                     if (dist < p.radius && p.score > other.score * 1.1) {
-                        p.score += other.score; // Skoru tam ekle (400 + 100 = 500)
-                        p.radius += other.radius * 0.1; // Boyutu dengeli artır (Harita kaplanmaz)
-                        
-                        // Yenen kişiyi 100 skorla yeniden başlat
-                        other.score = 100; 
-                        other.radius = 45; 
-                        other.x = worldSize/2; 
-                        other.y = worldSize/2;
+                        p.score += other.score;
+                        p.radius = Math.sqrt(p.score) * 4.5; // Yeniden hesapla
+                        other.score = 100; other.radius = 45; 
+                        other.x = worldSize/2; other.y = worldSize/2;
                         io.to(id).emit('respawn');
                     }
                 }
@@ -85,18 +58,10 @@ io.on('connection', (socket) => {
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
             if (p.gold >= 100) { 
-                p.gold -= 100; 
-                p.score += 200; 
-                p.radius += 2; // Satın alınan skorun büyüme etkisi düşürüldü
+                p.gold -= 100; p.score += 200; 
+                p.radius = Math.sqrt(p.score) * 4.5;
             }
         }
     });
-
-    socket.on('disconnect', () => { if (socket.currentRoom) delete rooms[socket.currentRoom].players[socket.id]; });
+    // ... (disconnect ve setInterval kısımları aynı)
 });
-
-setInterval(() => {
-    Object.keys(rooms).forEach(r => { io.to(r).emit('updatePlayers', rooms[r].players); });
-}, 30);
-
-server.listen(process.env.PORT || 3000);
