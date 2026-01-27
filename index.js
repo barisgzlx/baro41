@@ -1,32 +1,36 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+const socket = io(); // Sunucuya bağlan
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
-
-// Dosyaların yerini kesin olarak belirtiyoruz
-app.use(express.static(__dirname));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 let players = {};
 
-io.on('connection', (socket) => {
-    players[socket.id] = { x: 500, y: 500, color: '#' + Math.floor(Math.random()*16777215).toString(16) };
-    io.emit('updatePlayers', players);
-
-    socket.on('disconnect', () => {
-        delete players[socket.id];
-        io.emit('updatePlayers', players);
-    });
+// Sunucudan gelen oyuncu listesini güncelle
+socket.on('updatePlayers', (serverPlayers) => {
+    players = serverPlayers;
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Sunucu ${PORT} portunda hazir!`);
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Tüm oyuncuları ekrana çiz
+    for (let id in players) {
+        let p = players[id];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = p.color || 'red';
+        ctx.fill();
+        ctx.closePath();
+    }
+    
+    requestAnimationFrame(draw);
+}
+
+// Fare hareketini sunucuya gönder (Opsiyonel - Geliştirilebilir)
+window.addEventListener('mousemove', (e) => {
+    // Burada hareket kodlarını ileride ekleyeceğiz
 });
+
+draw();
