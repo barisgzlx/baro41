@@ -9,61 +9,44 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
-let rooms = {
-    "FFA-1": { players: {}, food: [] },
-    "FFA-2": { players: {}, food: [] }
-};
+let players = {};
+let food = [];
 
-// Yemleri odalara dağıt
-Object.keys(rooms).forEach(r => {
-    for(let i=0; i<400; i++) {
-        rooms[r].food.push({
-            id: i,
-            x: Math.random() * worldSize,
-            y: Math.random() * worldSize,
-            color: `hsl(${Math.random() * 360}, 100%, 50%)`
-        });
-    }
-});
+// Yemleri oluştur
+for(let i=0; i<300; i++) {
+    food.push({
+        id: i,
+        x: Math.random() * worldSize,
+        y: Math.random() * worldSize,
+        color: `hsl(${Math.random() * 360}, 100%, 50%)`
+    });
+}
 
 io.on('connection', (socket) => {
     socket.on('join', (data) => {
-        const roomName = data.room || "FFA-1";
-        
-        if (socket.currentRoom && rooms[socket.currentRoom]) {
-            delete rooms[socket.currentRoom].players[socket.id];
-            socket.leave(socket.currentRoom);
-        }
-
-        if (rooms[roomName]) {
-            socket.join(roomName);
-            socket.currentRoom = roomName;
-            rooms[roomName].players[socket.id] = {
-                x: worldSize / 2,
-                y: worldSize / 2,
-                radius: 30,
-                score: 0,
-                gold: 500,
-                nick: data.nick || "baro",
-                color: `hsl(${Math.random() * 360}, 100%, 50%)`
-            };
-            socket.emit('initFood', rooms[roomName].food);
-        }
+        players[socket.id] = {
+            x: worldSize / 2,
+            y: worldSize / 2,
+            radius: 30,
+            nick: data.nick || "baro",
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+            score: 0,
+            gold: 500
+        };
+        socket.emit('initFood', food);
     });
 
     socket.on('move', (data) => {
-        const room = socket.currentRoom;
-        if (room && rooms[room]?.players[socket.id]) {
-            let p = rooms[room].players[socket.id];
-            p.x = data.x;
-            p.y = data.y;
+        if (players[socket.id]) {
+            players[socket.id].x = data.x;
+            players[socket.id].y = data.y;
             
-            // Yem yeme kontrolü
-            rooms[room].food = rooms[room].food.filter(f => {
-                let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius) {
-                    p.score += 1;
-                    p.radius += 0.15;
+            // Basit yem yeme kontrolü
+            food = food.filter(f => {
+                let dist = Math.sqrt((players[socket.id].x - f.x)**2 + (players[socket.id].y - f.y)**2);
+                if (dist < players[socket.id].radius) {
+                    players[socket.id].score += 1;
+                    players[socket.id].radius += 0.1;
                     return false;
                 }
                 return true;
@@ -71,28 +54,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('buyScore', () => {
-        const room = socket.currentRoom;
-        const p = rooms[room]?.players[socket.id];
-        if (p && p.gold >= 100) {
-            p.gold -= 100; p.score += 200; p.radius += 5;
-            io.to(room).emit('updatePlayers', rooms[room].players);
-        }
-    });
-
-    socket.on('disconnect', () => {
-        const room = socket.currentRoom;
-        if (room && rooms[room]?.players[socket.id]) {
-            delete rooms[room].players[socket.id];
-        }
-    });
+    socket.on('disconnect', () => { delete players[socket.id]; });
 });
 
-setInterval(() => {
-    Object.keys(rooms).forEach(r => {
-        io.to(r).emit('updatePlayers', rooms[r].players);
-    });
-}, 25);
+setInterval(() => { io.emit('updatePlayers', players); }, 20);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Sunucu calisiyor: " + PORT));
+server.listen(PORT, () => console.log("Sistem Aktif"));
