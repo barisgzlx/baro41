@@ -1,38 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Baris Agarz - FFA Odaları</title>
+    <title>Baris Agarz</title>
     <style>
-        body { margin: 0; background: #111; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
-        #menu {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(34, 34, 34, 0.95); padding: 40px; border-radius: 20px; 
-            text-align: center; border: 3px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        body { margin: 0; background: #111; overflow: hidden; font-family: 'Ubuntu', sans-serif; color: white; }
+        #overlay {
+            position: absolute; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 100;
         }
-        h1 { color: dodgerblue; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
-        .btn-container { display: flex; flex-direction: column; gap: 10px; }
-        button { 
-            padding: 12px 40px; cursor: pointer; border: none; 
-            border-radius: 5px; background: #333; color: white; 
-            font-size: 16px; font-weight: bold; transition: 0.2s;
+        #main-menu {
+            background: #222; padding: 30px; border-radius: 10px; width: 350px;
+            box-shadow: 0 0 30px rgba(0,0,0,1); border: 2px solid #444;
         }
-        button:hover { background: dodgerblue; transform: scale(1.05); }
-        canvas { display: none; background: #050505; }
+        h1 { margin-top: 0; text-align: center; color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+        input {
+            width: 93%; padding: 12px; margin-bottom: 15px; border-radius: 5px;
+            border: none; background: #333; color: white; font-size: 16px;
+        }
+        .room-list {
+            display: flex; justify-content: space-around; margin-bottom: 15px;
+        }
+        .room-btn {
+            background: #444; padding: 8px; border-radius: 5px; cursor: pointer; font-size: 12px;
+        }
+        .room-btn.active { background: #00ff00; color: black; font-weight: bold; }
+        .action-btns { display: flex; gap: 10px; }
+        .btn {
+            flex: 1; padding: 12px; border: none; border-radius: 5px;
+            cursor: pointer; font-size: 18px; font-weight: bold; color: white;
+        }
+        #play-btn { background: #00ff00; color: black; }
+        #spectate-btn { background: #555; }
+        canvas { display: block; background-image: radial-gradient(#222 1px, transparent 1px); background-size: 40px 40px; }
+        #hint { position: absolute; bottom: 10px; left: 10px; color: #888; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div id="menu">
-        <h1>AGARZ FFA</h1>
-        <div class="btn-container">
-            <button onclick="joinRoom('ffa1')">FFA 1</button>
-            <button onclick="joinRoom('ffa2')">FFA 2</button>
-            <button onclick="joinRoom('ffa3')">FFA 3</button>
-            <button onclick="joinRoom('ffa4')">FFA 4</button>
-            <button onclick="joinRoom('ffa5')">FFA 5</button>
-        </div>
-    </div>
-    <canvas id="gameCanvas"></canvas>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
+    <div id="overlay">
+        <div id="main-menu">
+            <h1>AGARZ</h1>
+            <input type="text" id="nickname" placeholder="Nickname" maxlength="15">
+            
+            <div class="room-list">
+                <div class="room-btn active" onclick="selectRoom('ffa1', this)">FFA 1</div>
+                <div class="room-btn" onclick="selectRoom('ffa2', this)">FFA 2</div>
+                <div class="room-btn" onclick="selectRoom('ffa3', this)">FFA 3</div>
+                <div class="room-btn" onclick="selectRoom('ffa4', this)">FFA 4</div>
+                <div class="room-btn" onclick="selectRoom('ffa5', this)">FFA 5</div>
+            </div>
+
+            <div class="action
