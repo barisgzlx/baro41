@@ -18,26 +18,23 @@ socket.on('initFood', (f) => { foods = f; });
 
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
-    if (p[socket.id]) {
-        const sP = p[socket.id];
-        // Sunucu ve yerel konumu yumuşakça birleştir (Titremeyi keser)
-        myLocalPos.x += (sP.x - myLocalPos.x) * 0.4;
-        myLocalPos.y += (sP.y - myLocalPos.y) * 0.4;
-    }
+    // TİTREMEYİ BİTİREN ÖNEMLİ AYAR:
+    // Sunucu verisi karakterimizi geriye çekmeye çalışmayacak, sadece skor ve gold verisini alacağız.
     
-    // OYUNCU TABLOSU
+    // OYUNCU TABLOSU GÜNCELLEME
     if (lbList) {
         let listHTML = "";
-        Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10).forEach((pl, i) => {
-            listHTML += `<div style="color:white; font-size:13px; margin-bottom:3px;">${i+1}. ${pl.nick}: ${Math.floor(pl.score)}</div>`;
+        const sorted = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
+        sorted.forEach((pl, i) => {
+            listHTML += `<div style="color:white; font-size:14px; margin-bottom:5px;">${i+1}. ${pl.nick}: ${Math.floor(pl.score)}</div>`;
         });
         lbList.innerHTML = listHTML;
     }
 });
 
-// Başlığı güncelle
-const h3 = document.querySelector('#leaderboard h3');
-if (h3) h3.innerText = "Oyuncu Tablosu";
+// Başlığı "Oyuncu Tablosu" yap
+const lbTitle = document.querySelector('#leaderboard h3');
+if (lbTitle) lbTitle.innerText = "Oyuncu Tablosu";
 
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
@@ -57,21 +54,26 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// Hareket Döngüsü
+// ANA HAREKET (Sıfır Titreme / Akıcı Hareket)
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.sqrt(dx*dx + dy*dy);
+        
         if (dist > 5) {
+            // Tamamen yerel hesaplama
             myLocalPos.x += (dx / dist) * 4.5;
             myLocalPos.y += (dy / dist) * 4.5;
         }
+
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
+
+        // Sunucuya sadece konum bilgisini gönder
         socket.emit('move', { x: myLocalPos.x, y: myLocalPos.y });
     }
-}, 16);
+}, 16); // 60 FPS
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -79,9 +81,10 @@ function draw() {
 
     const me = otherPlayers[socket.id];
     ctx.save();
+    // Kamerayı karakterine sabitle (Titremeyi %100 keser)
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Harita Sınırı
+    // Sınır
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
 
     // Yemler
@@ -90,14 +93,17 @@ function draw() {
         ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Oyuncular
+    // Oyuncuları Çiz
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
+        // Kendi karakterimizi yerel pos'ta, diğerlerini sunucu pos'unda çiz
         const rX = (id === socket.id) ? myLocalPos.x : p.x;
         const rY = (id === socket.id) ? myLocalPos.y : p.y;
+        
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(rX, rY, p.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(p.nick, rX, rY + 5);
+        ctx.fillStyle = "white"; ctx.textAlign = "center";
+        ctx.fillText(p.nick, rX, rY + 5);
     });
     ctx.restore();
 
