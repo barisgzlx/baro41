@@ -9,15 +9,14 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
-// HTML İLE TAM UYUMLU ODALAR
 let rooms = {
     "FFA-1": { players: {}, food: [] },
     "FFA-2": { players: {}, food: [] }
 };
 
-// Odalara yemleri doldur
+// Yemleri odalara serp
 Object.keys(rooms).forEach(r => {
-    for(let i=0; i<350; i++) {
+    for(let i=0; i<400; i++) {
         rooms[r].food.push({
             id: i,
             x: Math.random() * worldSize,
@@ -30,7 +29,6 @@ Object.keys(rooms).forEach(r => {
 io.on('connection', (socket) => {
     socket.on('join', (data) => {
         const roomName = data.room || "FFA-1";
-        
         if (socket.currentRoom && rooms[socket.currentRoom]) {
             delete rooms[socket.currentRoom].players[socket.id];
             socket.leave(socket.currentRoom);
@@ -40,13 +38,9 @@ io.on('connection', (socket) => {
             socket.join(roomName);
             socket.currentRoom = roomName;
             rooms[roomName].players[socket.id] = {
-                x: worldSize / 2,
-                y: worldSize / 2,
-                radius: 30,
-                nick: data.nick || "baro",
-                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-                score: 0,
-                gold: 500 // Başlangıç parası
+                x: worldSize / 2, y: worldSize / 2, radius: 30,
+                score: 0, gold: 500, nick: data.nick || "baro",
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`
             };
             socket.emit('initFood', rooms[roomName].food);
         }
@@ -56,15 +50,13 @@ io.on('connection', (socket) => {
         const room = socket.currentRoom;
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
-            p.x = data.x;
-            p.y = data.y;
+            p.x = data.x; p.y = data.y;
 
-            // Yem yeme
+            // Yem yeme kontrolü
             rooms[room].food = rooms[room].food.filter(f => {
-                let d = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (d < p.radius) {
-                    p.score += 1;
-                    p.radius += 0.15;
+                let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
+                if (dist < p.radius) {
+                    p.score += 1; p.radius += 0.15;
                     return false;
                 }
                 return true;
@@ -72,23 +64,21 @@ io.on('connection', (socket) => {
         }
     });
 
-    // S Tuşu: 100 Gold harca -> 200 Skor kazan
+    // S TUŞU: 100 Gold -> 200 Skor
     socket.on('buyScore', () => {
         const room = socket.currentRoom;
-        if (room && rooms[room]?.players[socket.id]) {
-            let p = rooms[room].players[socket.id];
-            if (p.gold >= 100) {
-                p.gold -= 100;
-                p.score += 200;
-                p.radius += 5;
-            }
+        const p = rooms[room]?.players[socket.id];
+        if (p && p.gold >= 100) {
+            p.gold -= 100;
+            p.score += 200;
+            p.radius += 5;
+            io.to(room).emit('updatePlayers', rooms[room].players);
         }
     });
 
     socket.on('disconnect', () => {
-        const room = socket.currentRoom;
-        if (room && rooms[room]?.players[socket.id]) {
-            delete rooms[room].players[socket.id];
+        if (socket.currentRoom && rooms[socket.currentRoom]) {
+            delete rooms[socket.currentRoom].players[socket.id];
         }
     });
 });
@@ -100,4 +90,4 @@ setInterval(() => {
 }, 25);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("FFA Odalari ve Gold Sistemi Hazir"));
+server.listen(PORT, () => console.log("Sunucu Hazir"));
