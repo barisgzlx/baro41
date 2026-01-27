@@ -14,20 +14,11 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 socket.on('initFood', (f) => foods = f);
-socket.on('updatePlayers', (p) => {
-    otherPlayers = p;
-    if (p[socket.id]) {
-        const sP = p[socket.id];
-        const dist = Math.sqrt((sP.x - myLocalPos.x)**2 + (sP.y - myLocalPos.y)**2);
-        if (dist > 100) { myLocalPos.x = sP.x; myLocalPos.y = sP.y; }
-    }
-});
+socket.on('updatePlayers', (p) => { otherPlayers = p; });
 
-// OYNA BUTONU TAMİRİ
 function join(spectate) {
     const nickVal = document.getElementById('nick').value || "baro";
-    const roomVal = document.getElementById('room').value; // FFA-1 veya FFA-2 gelir
-    
+    const roomVal = document.getElementById('room').value;
     overlay.style.display = 'none';
     isPlaying = true;
     socket.emit('join', { room: roomVal, nick: nickVal, spectate: spectate });
@@ -38,16 +29,15 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// Gecikmesiz Hareket
+// Ping Engelleyici Akıcı Hareket
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist > 5) {
-            const speed = 4;
-            myLocalPos.x += (dx / dist) * speed;
-            myLocalPos.y += (dy / dist) * speed;
+            myLocalPos.x += (dx / dist) * 4;
+            myLocalPos.y += (dy / dist) * 4;
         }
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
@@ -62,21 +52,20 @@ window.addEventListener('keydown', (e) => {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const me = otherPlayers[socket.id];
+    if (!isPlaying) { requestAnimationFrame(draw); return; }
 
+    const me = otherPlayers[socket.id];
     ctx.save();
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Grid ve Sınır
+    // Grid ve Sinirlar
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
-    
-    // Yemler
+
     foods.forEach(f => {
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(f.x, f.y, 5, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         const dX = (id === socket.id) ? myLocalPos.x : p.x;
@@ -88,13 +77,9 @@ function draw() {
     });
 
     ctx.restore();
-
-    // HUD
     if (me) {
-        ctx.fillStyle = "yellow"; ctx.font = "bold 22px Arial";
-        ctx.fillText(`Gold: ${me.gold}`, 20, 40);
-        ctx.fillStyle = "white";
-        ctx.fillText(`Skor: ${Math.floor(me.score)}`, 20, 70);
+        ctx.fillStyle = "yellow"; ctx.font = "20px Arial";
+        ctx.fillText(`Gold: ${me.gold} | Skor: ${Math.floor(me.score)}`, 20, 40);
     }
     requestAnimationFrame(draw);
 }
