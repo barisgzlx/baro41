@@ -14,11 +14,13 @@ let rooms = {
     "ffa3": { players: {}, food: [] }
 };
 
-// Yemleri oluştur
+// Yemleri azaltılmış şekilde oluştur (250 adet)
 Object.keys(rooms).forEach(r => {
-    for(let i=0; i<450; i++) {
+    for(let i=0; i<250; i++) {
         rooms[r].food.push({
-            id: i, x: Math.random() * worldSize, y: Math.random() * worldSize,
+            id: i + Math.random(), 
+            x: Math.random() * worldSize, 
+            y: Math.random() * worldSize,
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
         });
     }
@@ -41,20 +43,24 @@ io.on('connection', (socket) => {
         const room = socket.currentRoom;
         if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
-            // Hareketi sunucuda güncelle
-            p.x = data.x;
-            p.y = data.y;
+            p.x = data.x; p.y = data.y;
 
-            // YEM YEME KONTROLÜ
+            // YEM YEME VE LİSTEDEN SİLME (Garantili Yöntem)
+            const initialFoodCount = rooms[room].food.length;
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (dist < p.radius + 2) { 
-                    p.score += 2;
-                    p.radius += 0.15;
-                    return false;
+                if (dist < p.radius + 5) {
+                    p.score += 2; 
+                    p.radius += 0.2;
+                    return false; // Yemi sil
                 }
                 return true;
             });
+
+            // Eğer yem yendiyse tüm odaya yeni yem listesini gönder
+            if (rooms[room].food.length !== initialFoodCount) {
+                io.to(room).emit('initFood', rooms[room].food);
+            }
         }
     });
 
@@ -73,11 +79,10 @@ io.on('connection', (socket) => {
     });
 });
 
-// Güncelleme hızını stabilize et
 setInterval(() => {
     Object.keys(rooms).forEach(r => { 
         io.to(r).emit('updatePlayers', rooms[r].players); 
     });
-}, 33); // ~30 FPS
+}, 30);
 
 server.listen(process.env.PORT || 3000);
