@@ -9,12 +9,13 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 const worldSize = 3000;
+// HTML'deki oda isimleriyle birebir aynı olmalı
 let rooms = {
     "FFA-1": { players: {}, food: [] },
     "FFA-2": { players: {}, food: [] }
 };
 
-// Yemleri odalara ekle
+// Yemleri oluştur
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<400; i++) {
         rooms[r].food.push({
@@ -27,33 +28,33 @@ Object.keys(rooms).forEach(r => {
 });
 
 io.on('connection', (socket) => {
-    // OYNA BUTONU BURAYI TETİKLER
     socket.on('join', (data) => {
         const roomName = data.room || "FFA-1";
         
-        // Önceki odadan güvenli çıkış
+        // Mevcut odadan temizle
         if (socket.currentRoom && rooms[socket.currentRoom]) {
             delete rooms[socket.currentRoom].players[socket.id];
             socket.leave(socket.currentRoom);
         }
 
-        socket.join(roomName);
-        socket.currentRoom = roomName;
+        // Seçilen odaya gir
+        if (rooms[roomName]) {
+            socket.join(roomName);
+            socket.currentRoom = roomName;
 
-        // Karakter verilerini oluştur
-        rooms[roomName].players[socket.id] = {
-            x: worldSize / 2,
-            y: worldSize / 2,
-            radius: 30,
-            score: 0,
-            gold: 500, // Başlangıç parası
-            nick: data.nick || "baro",
-            color: `hsl(${Math.random() * 360}, 100%, 50%)`
-        };
+            rooms[roomName].players[socket.id] = {
+                x: worldSize / 2,
+                y: worldSize / 2,
+                radius: 30,
+                score: 0,
+                gold: 500,
+                nick: data.nick || "baro",
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`
+            };
 
-        // Gerekli verileri istemciye yolla
-        socket.emit('initFood', rooms[roomName].food);
-        io.to(roomName).emit('updatePlayers', rooms[roomName].players);
+            socket.emit('initFood', rooms[roomName].food);
+            io.to(roomName).emit('updatePlayers', rooms[roomName].players);
+        }
     });
 
     // S Tuşu: 100 Gold -> 200 Skor
@@ -68,15 +69,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Hareket ve Yem Yeme (Ping engellemek için doğrudan konum alır)
     socket.on('move', (data) => {
         const room = socket.currentRoom;
-        if (room && rooms[room] && rooms[room].players[socket.id]) {
+        if (room && rooms[room]?.players[socket.id]) {
             let p = rooms[room].players[socket.id];
             p.x = data.x;
             p.y = data.y;
 
-            // Yem yeme kontrolü
+            // Yem yeme
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
                 if (dist < p.radius) {
@@ -91,14 +91,13 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         const room = socket.currentRoom;
-        if (room && rooms[room] && rooms[room].players[socket.id]) {
+        if (room && rooms[room]?.players[socket.id]) {
             delete rooms[room].players[socket.id];
             io.to(room).emit('updatePlayers', rooms[room].players);
         }
     });
 });
 
-// Saniyede 40 kez güncelleme gönder
 setInterval(() => {
     Object.keys(rooms).forEach(r => {
         io.to(r).emit('updatePlayers', rooms[r].players);
@@ -106,4 +105,4 @@ setInterval(() => {
 }, 25);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Agarz Sunucusu Hazır: ${PORT}`));
+server.listen(PORT, () => console.log(`Sunucu aktif: ${PORT}`));
