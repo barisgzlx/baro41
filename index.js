@@ -14,7 +14,7 @@ let rooms = {
     ffa2: { players: {}, food: [] }
 };
 
-// Başlangıç yemleri
+// Başlangıç yemlerini odalara serp
 Object.keys(rooms).forEach(r => {
     for(let i=0; i<400; i++) {
         rooms[r].food.push({
@@ -27,84 +27,84 @@ Object.keys(rooms).forEach(r => {
 });
 
 io.on('connection', (socket) => {
+    console.log('Yeni bağlantı:', socket.id);
+
     socket.on('join', (data) => {
+        // Eski odadan çıkış yap
+        if (socket.currentRoom && rooms[socket.currentRoom]) {
+            delete rooms[socket.currentRoom].players[socket.id];
+            socket.leave(socket.currentRoom);
+        }
+
         socket.join(data.room);
         socket.currentRoom = data.room;
-        if (!rooms[data.room].players[socket.id]) {
-            rooms[data.room].players[socket.id] = {
-                x: worldSize / 2,
-                y: worldSize / 2,
-                radius: 30,
-                score: 0,
-                gold: 500, // Başlangıç altını
-                nick: data.nick || "baro",
-                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-                mouseX: worldSize / 2,
-                mouseY: worldSize / 2
-            };
-        }
+
+        // Oyuncuyu oluştur (Gold ve Skor dahil)
+        rooms[data.room].players[socket.id] = {
+            x: worldSize / 2,
+            y: worldSize / 2,
+            radius: 30,
+            score: 0,
+            gold: 500, 
+            nick: data.nick || "baro",
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`
+        };
+
         socket.emit('initFood', rooms[data.room].food);
     });
 
-    // S Tuşu: 100 Gold harca -> 200 Skor al
+    // S Tuşu: 100 Gold harca -> 200 Skor kazan
     socket.on('buyScore', () => {
         const room = socket.currentRoom;
         const p = rooms[room]?.players[socket.id];
         if (p && p.gold >= 100) {
             p.gold -= 100;
             p.score += 200;
-            p.radius += 5;
+            p.radius += 5; 
             io.to(room).emit('updatePlayers', rooms[room].players);
         }
     });
 
+    // PİNGİ BİTİREN HAREKET MANTIĞI: İstemciden gelen konumu onayla
     socket.on('move', (data) => {
         const room = socket.currentRoom;
-        if (room && rooms[room].players[socket.id]) {
-            rooms[room].players[socket.id].mouseX = data.x;
-            rooms[room].players[socket.id].mouseY = data.y;
-        }
-    });
-
-    socket.on('disconnect', () => {
-        if (socket.currentRoom && rooms[socket.currentRoom]) {
-            delete rooms[socket.currentRoom].players[socket.id];
-        }
-    });
-});
-
-// Agarz Döngüsü (Hareket ve Yem Yeme)
-setInterval(() => {
-    Object.keys(rooms).forEach(roomName => {
-        const room = rooms[roomName];
-        Object.keys(room.players).forEach(id => {
-            let p = room.players[id];
-            let dx = p.mouseX - p.x;
-            let dy = p.mouseY - p.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
+        if (room && rooms[room] && rooms[room].players[socket.id]) {
+            let p = rooms[room].players[socket.id];
             
-            if (dist > 5) {
-                p.x += (dx / dist) * 4;
-                p.y += (dy / dist) * 4;
-            }
-
-            // Sınır kontrolü
-            p.x = Math.max(0, Math.min(worldSize, p.x));
-            p.y = Math.max(0, Math.min(worldSize, p.y));
-
-            // Yem yeme
-            room.food = room.food.filter(f => {
-                let fDist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
-                if (fDist < p.radius) {
+            // Konumu güncelle
+            p.x = data.x;
+            p.y = data.y;
+            
+            // Yem yeme kontrolü (Sunucu güvenliği için burada kalmalı)
+            rooms[room].food = rooms[room].food.filter(f => {
+                let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
+                if (dist < p.radius) {
                     p.score += 1;
                     p.radius += 0.2;
                     return false;
                 }
                 return true;
             });
-        });
-        io.to(roomName).emit('updatePlayers', room.players);
+        }
     });
-}, 16);
 
-server.listen(process.env.PORT || 3000);
+    socket.on('disconnect', () => {
+        const room = socket.currentRoom;
+        if (room && rooms[room] && rooms[room].players[socket.id]) {
+            delete rooms[room].players[socket.id];
+            io.to(room).emit('updatePlayers', rooms[room].players);
+        }
+    });
+});
+
+// Broadcast Döngüsü: Saniyede 40 kez tüm oyunculara bilgi gönder
+setInterval(() => {
+    Object.keys(rooms).forEach(roomName => {
+        io.to(roomName).emit('updatePlayers', rooms[roomName].players);
+    });
+}, 25); 
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Sunucu ${PORT} portunda aktif.`);
+});
