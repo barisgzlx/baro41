@@ -2,6 +2,7 @@ const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
+const hud = document.getElementById('hud'); // HTML'deki HUD
 
 let otherPlayers = {};
 let foods = [];
@@ -23,27 +24,24 @@ socket.on('updatePlayers', (p) => {
     }
 });
 
-// TUŞLAR: ESC (Menü) ve S (Altın Harca)
+// ESC VE S TUŞU
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") {
         overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
+        hud.style.display = (overlay.style.display === 'none') ? 'block' : 'none';
     }
-    if (e.key.toLowerCase() === 's') {
-        socket.emit('buyScore');
-    }
+    if (e.key.toLowerCase() === 's') socket.emit('buyScore');
 });
 
-// OYNA BUTONU (HTML'deki onclick="join()" ile uyumlu)
-function join() {
-    const nickInput = document.getElementById('nick');
-    const roomSelect = document.getElementById('room');
-    
-    const nickVal = nickInput ? nickInput.value : "baro";
-    const roomVal = roomSelect ? roomSelect.value : "FFA-1";
+// OYNA FONKSİYONU (HTML ile %100 uyumlu)
+function join(spectate) {
+    const nickVal = document.getElementById('nick').value || "baro";
+    const roomVal = document.getElementById('room').value;
     
     overlay.style.display = 'none';
+    hud.style.display = 'block'; // Giriş yapınca HUD'ı göster
     isPlaying = true;
-    socket.emit('join', { room: roomVal, nick: nickVal });
+    socket.emit('join', { room: roomVal, nick: nickVal, spectate: spectate });
 }
 
 window.addEventListener('mousemove', (e) => {
@@ -51,7 +49,6 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// PİNGSİZ HAREKET SİSTEMİ
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
@@ -87,21 +84,16 @@ function draw() {
         const p = otherPlayers[id];
         const dX = (id === socket.id) ? myLocalPos.x : p.x;
         const dY = (id === socket.id) ? myLocalPos.y : p.y;
-        
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(dX, dY, p.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.font = "bold 16px Arial";
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 16px Arial";
         ctx.fillText(p.nick, dX, dY + 5);
     });
-
     ctx.restore();
 
-    // HUD: GOLD VE SKOR (Sol Üst Köşe)
+    // HUD Güncelleme (Sol Üst)
     if (me) {
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(10, 10, 180, 80);
-        ctx.fillStyle = "yellow"; ctx.font = "bold 20px Arial";
+        ctx.fillStyle = "yellow"; ctx.font = "bold 22px Arial";
         ctx.fillText(`Gold: ${me.gold}`, 20, 40);
         ctx.fillStyle = "white";
         ctx.fillText(`Skor: ${Math.floor(me.score)}`, 20, 70);
