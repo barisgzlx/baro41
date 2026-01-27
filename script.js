@@ -4,7 +4,6 @@ const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
 const lbList = document.getElementById('lb-list');
 const timerEl = document.getElementById('timer');
-const roomLabel = document.getElementById('room-name');
 
 let otherPlayers = {};
 let foods = [];
@@ -17,9 +16,20 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 socket.on('initFood', (f) => { foods = f; });
-socket.on('respawn', () => { myLocalPos = { x: 1500, y: 1500 }; alert("Yenildin!"); });
+socket.on('respawn', () => { myLocalPos = { x: 1500, y: 1500 }; alert("Yenildin! Skorun sıfırlandı."); });
 
-// Sayaç Güncelleme
+// TUŞ KONTROLLERİ (ESC ve S)
+window.addEventListener('keydown', (e) => {
+    // ESC - Menüyü aç/kapat
+    if (e.key === "Escape") {
+        overlay.style.display = (overlay.style.display === 'none' || overlay.style.display === '') ? 'flex' : 'none';
+    }
+    // S - Skor Satın Al
+    if (e.key.toLowerCase() === 's') {
+        socket.emit('buyScore');
+    }
+});
+
 socket.on('timerUpdate', (seconds) => {
     let h = Math.floor(seconds / 3600).toString().padStart(2, '0');
     let m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -31,11 +41,13 @@ socket.on('updatePlayers', (p) => {
     otherPlayers = p;
     const me = p[socket.id];
     
+    // Panel Güncelleme
     if (me) {
         document.getElementById('my-gold').innerText = me.gold;
         document.getElementById('my-score').innerText = Math.floor(me.score);
     }
 
+    // Tablo Güncelleme
     if (lbList) {
         let listHTML = "";
         const sorted = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
@@ -48,7 +60,7 @@ socket.on('updatePlayers', (p) => {
 
 function join() {
     const rVal = document.getElementById('room').value;
-    roomLabel.innerText = rVal.toUpperCase();
+    document.getElementById('room-name').innerText = rVal.toUpperCase();
     overlay.style.display = 'none';
     isPlaying = true;
     socket.emit('join', { nick: document.getElementById('nick').value, room: rVal });
@@ -56,6 +68,7 @@ function join() {
 
 window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
 
+// Hareket Döngüsü
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
