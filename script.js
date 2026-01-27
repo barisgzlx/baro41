@@ -10,6 +10,7 @@ let foods = [];
 let myLocalPos = { x: 1500, y: 1500 }; 
 let isPlaying = false;
 let mousePos = { x: 0, y: 0 };
+let zoom = 1; // Kamera ölçeği
 const worldSize = 3000;
 
 canvas.width = window.innerWidth;
@@ -22,9 +23,7 @@ window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") {
         overlay.style.display = (overlay.style.display === 'none' || overlay.style.display === '') ? 'flex' : 'none';
     }
-    if (e.key.toLowerCase() === 's') {
-        socket.emit('buyScore');
-    }
+    if (e.key.toLowerCase() === 's') { socket.emit('buyScore'); }
 });
 
 socket.on('timerUpdate', (seconds) => {
@@ -40,6 +39,10 @@ socket.on('updatePlayers', (p) => {
     if (me) {
         document.getElementById('my-gold').innerText = me.gold;
         document.getElementById('my-score').innerText = Math.floor(me.score);
+        
+        // ZOOM MANTIĞI: Skor arttıkça zoom azalır (Kamera uzaklaşır)
+        // Agarz tarzı görünüm sağlayan kritik formül
+        zoom = Math.pow(Math.min(1, 45 / me.radius), 0.4);
     }
     if (lbList) {
         let listHTML = "";
@@ -67,10 +70,10 @@ setInterval(() => {
         const dy = mousePos.y - canvas.height / 2;
         const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist > 5) {
-            // Hız, boyut büyüdükçe çok hafif yavaşlar (denge için)
-            let speed = 4.5; 
-            myLocalPos.x += (dx / dist) * speed;
-            myLocalPos.y += (dy / dist) * speed;
+            // Büyük hücreler biraz daha yavaş hareket eder (Agarz Dengesi)
+            let speed = 4.5 * Math.pow(0.9, (otherPlayers[socket.id].radius - 45) / 50);
+            myLocalPos.x += (dx / dist) * Math.max(1.5, speed);
+            myLocalPos.y += (dy / dist) * Math.max(1.5, speed);
         }
         myLocalPos.x = Math.max(0, Math.min(worldSize, myLocalPos.x));
         myLocalPos.y = Math.max(0, Math.min(worldSize, myLocalPos.y));
@@ -83,25 +86,38 @@ function draw() {
     if (!isPlaying) { requestAnimationFrame(draw); return; }
 
     ctx.save();
-    // Kamera Zoom Kontrolü: Çok büyüdüğünde kameranın uzaklaşması için (opsiyonel)
-    ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
+    // Ekrana göre ortala ve ZOOM uygula
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-myLocalPos.x, -myLocalPos.y);
     
-    ctx.strokeStyle = "red"; ctx.lineWidth = 10; ctx.strokeRect(0, 0, worldSize, worldSize);
+    // Arkaplan Izgarası (Grid) - Agarz hissi verir
+    ctx.strokeStyle = "#222"; ctx.lineWidth = 2;
+    for(let i=0; i<=worldSize; i+=100){
+        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,worldSize); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(worldSize,i); ctx.stroke();
+    }
+
+    ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
 
     foods.forEach(f => {
         ctx.fillStyle = f.color;
-        ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(f.x, f.y, 8, 0, Math.PI * 2); ctx.fill();
     });
 
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         const rX = (id === socket.id) ? myLocalPos.x : p.x;
         const rY = (id === socket.id) ? myLocalPos.y : p.y;
+        
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(rX, rY, p.radius, 0, Math.PI * 2); ctx.fill();
+        
+        // İsim boyutu karakterle beraber büyür
         ctx.fillStyle = "white"; ctx.textAlign = "center"; 
-        ctx.font = `${Math.max(12, p.radius/2)}px Arial`;
-        ctx.fillText(p.nick, rX, rY + (p.radius/10));
+        let fontSize = Math.max(14, p.radius / 3);
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.fillText(p.nick, rX, rY + (fontSize/3));
     });
     ctx.restore();
     requestAnimationFrame(draw);
