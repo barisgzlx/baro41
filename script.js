@@ -2,7 +2,7 @@ const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
-const lbList = document.getElementById('lb-list'); // HTML'deki liste alanı
+const lbList = document.getElementById('lb-list');
 
 let otherPlayers = {};
 let foods = [];
@@ -15,52 +15,36 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 socket.on('initFood', (f) => { foods = f; });
-
-// Ölme durumu (Biri seni yediğinde)
-socket.on('respawn', () => {
-    myLocalPos = { x: 1500, y: 1500 };
-    alert("Yenildin! Tekrar başlıyorsun.");
-});
+socket.on('respawn', () => { myLocalPos = { x: 1500, y: 1500 }; alert("Yenildin!"); });
 
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
     
-    // OYUNCU TABLOSU GÜNCELLEME
+    // TABLOYU DOLDUR
     if (lbList) {
         let listHTML = "";
         const sorted = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
         sorted.forEach((pl, i) => {
-            listHTML += `<div style="color:white; font-size:14px; margin-bottom:4px; font-family: sans-serif;">
-                ${i+1}. ${pl.nick}: ${Math.floor(pl.score)}
-            </div>`;
+            listHTML += `<div><span>${i+1}. ${pl.nick}</span> <b>${Math.floor(pl.score)}</b></div>`;
         });
         lbList.innerHTML = listHTML;
     }
 });
-
-// Başlığı "Oyuncu Tablosu" yap
-const h3 = document.querySelector('#leaderboard h3');
-if (h3) h3.innerText = "Oyuncu Tablosu";
 
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
     if (e.key.toLowerCase() === 's') socket.emit('buyScore');
 });
 
-function join(spectate) {
-    const nickVal = document.getElementById('nick').value || "baro";
-    const roomVal = document.getElementById('room').value;
+function join() {
     overlay.style.display = 'none';
     isPlaying = true;
-    socket.emit('join', { room: roomVal, nick: nickVal, spectate: spectate });
+    socket.emit('join', { nick: document.getElementById('nick').value, room: document.getElementById('room').value });
 }
 
-window.addEventListener('mousemove', (e) => {
-    mousePos.x = e.clientX;
-    mousePos.y = e.clientY;
-});
+window.addEventListener('mousemove', (e) => { mousePos = { x: e.clientX, y: e.clientY }; });
 
-// Hareket Döngüsü (Titreşimsiz)
+// Hareket Döngüsü (Titreşimi Keser)
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
@@ -80,17 +64,19 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!isPlaying) { requestAnimationFrame(draw); return; }
 
-    const me = otherPlayers[socket.id];
     ctx.save();
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
+    
+    // Sınır
+    ctx.strokeStyle = "red"; ctx.lineWidth = 10; ctx.strokeRect(0, 0, worldSize, worldSize);
 
-    ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
-
+    // Yemler
     foods.forEach(f => {
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, Math.PI * 2); ctx.fill();
     });
 
+    // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         const rX = (id === socket.id) ? myLocalPos.x : p.x;
@@ -100,13 +86,6 @@ function draw() {
         ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(p.nick, rX, rY + 5);
     });
     ctx.restore();
-
-    if (me) {
-        ctx.fillStyle = "yellow"; ctx.font = "bold 20px Arial";
-        ctx.fillText(`Gold: ${me.gold}`, 20, 40);
-        ctx.fillStyle = "white";
-        ctx.fillText(`Skor: ${Math.floor(me.score)}`, 20, 70);
-    }
     requestAnimationFrame(draw);
 }
 draw();
