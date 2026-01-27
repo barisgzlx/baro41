@@ -2,7 +2,7 @@ const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
-const lbList = document.getElementById('lb-list'); // HTML'deki liste alanı
+const lbList = document.getElementById('lb-list');
 
 let otherPlayers = {};
 let foods = [];
@@ -14,34 +14,30 @@ const worldSize = 3000;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Sunucudan güncel yem listesi gelince hemen güncelle
 socket.on('initFood', (f) => { foods = f; });
 
 socket.on('updatePlayers', (p) => {
     otherPlayers = p;
     if (p[socket.id]) {
         const sP = p[socket.id];
-        // Sarsıntıyı bitirmek için yumuşak takip
+        // Sunucu ve yerel konumu yumuşakça birleştir (Titremeyi keser)
         myLocalPos.x += (sP.x - myLocalPos.x) * 0.4;
         myLocalPos.y += (sP.y - myLocalPos.y) * 0.4;
     }
     
-    // OYUNCU TABLOSU GÜNCELLEME
+    // OYUNCU TABLOSU
     if (lbList) {
         let listHTML = "";
-        const sortedPlayers = Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10);
-        sortedPlayers.forEach((player, index) => {
-            listHTML += `<div style="color: ${player.color}; font-weight: bold; font-size: 14px; margin-bottom: 5px;">
-                ${index + 1}. ${player.nick}: ${Math.floor(player.score)}
-            </div>`;
+        Object.values(p).sort((a,b) => b.score - a.score).slice(0, 10).forEach((pl, i) => {
+            listHTML += `<div style="color:white; font-size:13px; margin-bottom:3px;">${i+1}. ${pl.nick}: ${Math.floor(pl.score)}</div>`;
         });
         lbList.innerHTML = listHTML;
     }
 });
 
-// Başlığı "Oyuncu Tablosu" yap
-const leaderboardTitle = document.querySelector('#leaderboard h3');
-if (leaderboardTitle) leaderboardTitle.innerText = "Oyuncu Tablosu";
+// Başlığı güncelle
+const h3 = document.querySelector('#leaderboard h3');
+if (h3) h3.innerText = "Oyuncu Tablosu";
 
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") overlay.style.display = (overlay.style.display === 'none') ? 'flex' : 'none';
@@ -61,7 +57,7 @@ window.addEventListener('mousemove', (e) => {
     mousePos.y = e.clientY;
 });
 
-// Akıcı hareket döngüsü
+// Hareket Döngüsü
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id]) {
         const dx = mousePos.x - canvas.width / 2;
@@ -85,26 +81,23 @@ function draw() {
     ctx.save();
     ctx.translate(canvas.width / 2 - myLocalPos.x, canvas.height / 2 - myLocalPos.y);
 
-    // Kırmızı Sınır
+    // Harita Sınırı
     ctx.strokeStyle = "red"; ctx.lineWidth = 15; ctx.strokeRect(0, 0, worldSize, worldSize);
 
-    // Yemleri Çiz
+    // Yemler
     foods.forEach(f => {
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Oyuncuları Çiz
+    // Oyuncular
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
-        const renderX = (id === socket.id) ? myLocalPos.x : p.x;
-        const renderY = (id === socket.id) ? myLocalPos.y : p.y;
-        
+        const rX = (id === socket.id) ? myLocalPos.x : p.x;
+        const rY = (id === socket.id) ? myLocalPos.y : p.y;
         ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(renderX, renderY, p.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.font = "bold 14px Arial";
-        ctx.fillText(p.nick, renderX, renderY + 5);
+        ctx.beginPath(); ctx.arc(rX, rY, p.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(p.nick, rX, rY + 5);
     });
     ctx.restore();
 
