@@ -1,18 +1,52 @@
-<style>
-    /* Oyun içi HUD elemanları */
-    #gui { display: none; pointer-events: none; position: absolute; width: 100%; height: 100%; font-family: 'Ubuntu', sans-serif; }
-    #leaderboard { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; width: 180px; }
-    #stats { position: absolute; bottom: 20px; left: 20px; font-size: 20px; font-weight: bold; color: #ffcc00; }
-    #minimap { position: absolute; bottom: 20px; right: 20px; width: 150px; height: 150px; background: rgba(0,0,0,0.5); border: 2px solid #555; }
-    #chat-box { position: absolute; bottom: 100px; left: 20px; width: 250px; height: 150px; background: rgba(0,0,0,0.3); overflow: hidden; }
-</style>
-
-<div id="gui">
-    <div id="leaderboard">
-        <h3 style="margin:0; text-align:center; color:#00ff00;">Onur Tablosu</h3>
-        <div id="leaderboard-list"></div>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Baris Agarz</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        /* Giriş Menüsü */
+        #overlay {
+            position: absolute; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        #main-menu { background: white; padding: 25px; border-radius: 10px; width: 300px; text-align: center; }
+        h1 { font-size: 40px; color: #333; margin-bottom: 15px; font-weight: bold; }
+        input, select { width: 90%; padding: 12px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        .btn { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 5px; border: none; font-size: 18px; cursor: pointer; font-weight: bold; color: white; }
+        #play-btn { background: #4285f4; }
+        #spectate-btn { background: #f4b400; }
+        
+        /* Oyun İçi HUD (Agarz Görselindeki Elemanlar) */
+        #hud { display: none; pointer-events: none; position: absolute; width: 100%; height: 100%; color: white; }
+        #leaderboard { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; width: 180px; text-align: right; }
+        #chat { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.2); width: 300px; height: 150px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <div id="main-menu">
+            <h1>AGARZ</h1>
+            <input type="text" id="nick" placeholder="Nickname" maxlength="15">
+            <select id="room">
+                <option value="ffa1">FFA-1</option>
+                <option value="ffa2">FFA-2</option>
+                <option value="ffa3">FFA-3</option>
+            </select>
+            <button class="btn" id="play-btn" onclick="join(false)">Oyna</button>
+            <button class="btn" id="spectate-btn" onclick="join(true)">İzle</button>
+        </div>
     </div>
-    <div id="stats">Skor: <span id="score">0</span></div>
-    <div id="chat-box"></div>
-    <div id="minimap"></div>
-</div>
+
+    <div id="hud">
+        <div id="leaderboard">
+            <h3 style="color:#00ff00; margin:0;">Onur Tablosu</h3>
+            <div id="lb-list"></div>
+        </div>
+        <div id="chat">sevim: selamlar</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
