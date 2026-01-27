@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Baro Agarz - Sayfam</title>
+    <style>
+        body { background: #f4f4f4; font-family: sans-serif; text-align: center; padding-top: 50px; }
+        .container { background: white; width: 400px; margin: 0 auto; padding: 30px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-top: 5px solid #007bff; }
+        h1 { color: #333; margin-bottom: 25px; }
+        .stat-box { background: #eee; margin: 10px 0; padding: 20px; border-radius: 10px; font-size: 22px; font-weight: bold; }
+        .gold { color: #d4af37; }
+        .win { color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OYUNCU PROFİLİ</h1>
+        <div class="stat-box">Gold: <span id="p-gold" class="gold">0</span></div>
+        <div class="stat-box">Toplam Galibiyet: <span id="p-win" class="win">0</span></div>
+        <p style="color: #666; font-size: 12px; margin-top: 20px;">Verileriniz otomatik kaydedilir.</p>
+    </div>
+    <script>
+        // Verileri hafızadan çek ve göster
+        document.getElementById('p-gold').innerText = Number(localStorage.getItem('baro_gold') || 0).toLocaleString();
+        document.getElementById('p-win').innerText = localStorage.getItem('baro_win') || 0;
+    </script>
+</body>
+</html>
