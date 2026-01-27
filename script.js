@@ -13,23 +13,28 @@ let mousePos = { x: 0, y: 0 };
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Pencere boyutu değişince canvas'ı güncelle
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-});
+socket.on('initFood', (serverFood) => { foods = serverFood; });
 
-// Yemleri sunucudan al
-socket.on('initFood', (serverFood) => {
-    foods = serverFood;
-});
-
-// Diğer oyuncuları güncelle
+// TİTREMEYİ ENGELLEYEN MANTIK: Gelen veriyi hemen uygulama, hedefe doğru süzül
 socket.on('updatePlayers', (players) => {
-    otherPlayers = players;
+    Object.keys(players).forEach(id => {
+        if (!otherPlayers[id]) {
+            otherPlayers[id] = players[id]; // Yeni oyuncuysa ekle
+        } else {
+            // Mevcut oyuncunun hedefini güncelle, ama x ve y'yi aniden değiştirme
+            otherPlayers[id].targetX = players[id].x;
+            otherPlayers[id].targetY = players[id].y;
+            otherPlayers[id].radius = players[id].radius;
+            otherPlayers[id].nick = players[id].nick;
+            otherPlayers[id].color = players[id].color;
+        }
+    });
+    // Odadan çıkanları temizle
+    Object.keys(otherPlayers).forEach(id => {
+        if (!players[id]) delete otherPlayers[id];
+    });
 });
 
-// Fare konumunu sürekli kaydet ama hemen gönderme (Donmayı engeller)
 window.addEventListener('mousemove', (e) => {
     mousePos.x = e.clientX;
     mousePos.y = e.clientY;
@@ -38,92 +43,82 @@ window.addEventListener('mousemove', (e) => {
 function join(spectate) {
     const nick = document.getElementById('nick').value || "baro";
     const room = document.getElementById('room').value;
-    
     overlay.style.display = 'none';
     hud.style.display = 'block';
     isPlaying = !spectate;
-    
     socket.emit('join', { room, nick, spectate });
 }
 
-// ESC Desteği
 window.addEventListener('keydown', (e) => {
-    if (e.key === "Escape") {
-        overlay.style.display = 'flex';
-    }
+    if (e.key === "Escape") overlay.style.display = 'flex';
 });
 
-// OPTİMİZASYON: Saniyede 30 kez veri göndererek donmayı (lag) bitir
+// Sunucuya veri gönderme hızını düşür (Trafiği rahatlatır)
 setInterval(() => {
     if (isPlaying && otherPlayers[socket.id] && overlay.style.display === 'none') {
         const me = otherPlayers[socket.id];
-        
-        // Merkeze olan uzaklığı hesapla
         const dx = mousePos.x - canvas.width / 2;
         const dy = mousePos.y - canvas.height / 2;
         
-        // Agarz hızı (Yumuşatılmış hareket)
-        const moveX = me.x + (dx * 0.15);
-        const moveY = me.y + (dy * 0.15);
+        // Hızı Agarz seviyesine çektik
+        const nextX = me.x + (dx * 0.1);
+        const nextY = me.y + (dy * 0.1);
         
-        // Sınırları aşma
         socket.emit('move', { 
-            x: Math.max(0, Math.min(worldSize, moveX)), 
-            y: Math.max(0, Math.min(worldSize, moveY)) 
+            x: Math.max(0, Math.min(worldSize, nextX)), 
+            y: Math.max(0, Math.min(worldSize, nextY)) 
         });
     }
-}, 33); 
+}, 40); // 25 FPS paket gönderimi
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = otherPlayers[socket.id];
 
+    // OYUNCU KONUMLARINI YUMUŞAT (Interpolation)
+    Object.keys(otherPlayers).forEach(id => {
+        const p = otherPlayers[id];
+        if (p.targetX !== undefined) {
+            // Bulunduğu yerden hedefe %20 hızla yaklaş (Yumuşak kayma)
+            p.x += (p.targetX - p.x) * 0.2;
+            p.y += (p.targetY - p.y) * 0.2;
+        }
+    });
+
     ctx.save();
     if (me) {
-        // Kamerayı karakterin üzerine yumuşakça odakla
         ctx.translate(canvas.width/2 - me.x, canvas.height/2 - me.y);
     }
 
-    // 1. KIRMIZI SINIR
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 15;
+    // KIRMIZI SINIR VE GRID
+    ctx.strokeStyle = "red"; ctx.lineWidth = 15;
     ctx.strokeRect(0, 0, worldSize, worldSize);
-
-    // 2. GRID ÇİZGİLERİ
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 1;
     for(let i=0; i<=worldSize; i+=50) {
         ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, worldSize); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(worldSize, i); ctx.stroke();
     }
 
-    // 3. YEMLERİ ÇİZ
+    // YEMLER
     foods.forEach(f => {
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = f.color;
-        ctx.fill();
-        ctx.closePath();
+        ctx.beginPath(); ctx.arc(f.x, f.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = f.color; ctx.fill();
     });
 
-    // 4. OYUNCULARI ÇİZ
+    // OYUNCULAR
     Object.keys(otherPlayers).forEach(id => {
         const p = otherPlayers[id];
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
-        ctx.closePath();
-        
-        // Nickname yazımı
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
-        ctx.font = `bold ${Math.max(12, p.radius/2)}px Arial`;
+        ctx.font = "bold 14px Arial";
         ctx.fillText(p.nick, p.x, p.y + 5);
     });
 
     ctx.restore();
     requestAnimationFrame(draw);
 }
-
-draw();ff
+draw();
