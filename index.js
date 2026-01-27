@@ -7,28 +7,24 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-// 5 adet oda tanımlıyoruz
-let rooms = { 
-    ffa1: {}, ffa2: {}, ffa3: {}, ffa4: {}, ffa5: {} 
-};
+let rooms = { ffa1: {}, ffa2: {}, ffa3: {} };
 
 io.on('connection', (socket) => {
-    socket.on('join', (roomName) => {
-        // Geçerli bir oda mı kontrol et
-        if (!rooms[roomName]) return;
-
-        socket.join(roomName);
-        socket.currentRoom = roomName;
+    socket.on('join', (data) => {
+        socket.join(data.room);
+        socket.currentRoom = data.room;
         
-        // Oyuncuyu o odaya kaydet
-        rooms[roomName][socket.id] = { 
-            x: Math.random() * 1000, 
-            y: Math.random() * 800, 
-            radius: 20, 
-            color: `hsl(${Math.random() * 360}, 70%, 50%)` // Her girişte farklı renk
-        };
-        
-        io.to(roomName).emit('updatePlayers', rooms[roomName]);
+        // Sadece izleyici değilse oyuncu datası oluştur
+        if (!data.spectate) {
+            rooms[data.room][socket.id] = {
+                x: Math.random() * 2000 + 500,
+                y: Math.random() * 2000 + 500,
+                radius: 30,
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                nick: data.nick
+            };
+        }
+        io.to(data.room).emit('updatePlayers', rooms[data.room]);
     });
 
     socket.on('move', (data) => {
@@ -36,19 +32,17 @@ io.on('connection', (socket) => {
         if (room && rooms[room][socket.id]) {
             rooms[room][socket.id].x = data.x;
             rooms[room][socket.id].y = data.y;
-            rooms[room][socket.id].radius = data.radius;
             io.to(room).emit('updatePlayers', rooms[room]);
         }
     });
 
     socket.on('disconnect', () => {
         const room = socket.currentRoom;
-        if (room && rooms[room][socket.id]) {
+        if (room && rooms[room] && rooms[room][socket.id]) {
             delete rooms[room][socket.id];
             io.to(room).emit('updatePlayers', rooms[room]);
         }
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log('5 Odalı Sistem Yayında!'));
+server.listen(process.env.PORT || 3000);
