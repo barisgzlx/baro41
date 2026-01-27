@@ -14,11 +14,11 @@ let rooms = {
     "ffa3": { players: {}, food: [] }
 };
 
-// Yem sayısını 250'ye düşürdüm
+// Yem sayısını 200'e düşürdüm (Daha az yük, daha hızlı senkron)
 Object.keys(rooms).forEach(r => {
-    for(let i=0; i<250; i++) {
+    for(let i=0; i<200; i++) {
         rooms[r].food.push({
-            id: Math.random(), 
+            id: Math.random().toString(36).substr(2, 9), 
             x: Math.random() * worldSize, 
             y: Math.random() * worldSize,
             color: `hsl(${Math.random() * 360}, 100%, 50%)`
@@ -45,20 +45,20 @@ io.on('connection', (socket) => {
             let p = rooms[room].players[socket.id];
             p.x = data.x; p.y = data.y;
 
-            // YEM YEME KONTROLÜ
-            let ate = false;
+            // YEM YEME SİSTEMİ - ANLIK SİLME
+            let ateFood = false;
             rooms[room].food = rooms[room].food.filter(f => {
                 let dist = Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2);
                 if (dist < p.radius) {
                     p.score += 2; p.radius += 0.15;
-                    ate = true;
+                    ateFood = true;
                     return false;
                 }
                 return true;
             });
 
-            // Yem yendiyse listeyi tüm odaya gönder ki yem kaybolsun
-            if (ate) io.to(room).emit('initFood', rooms[room].food);
+            // Yem yendiyse tüm odaya yeni listeyi bas
+            if (ateFood) io.to(room).emit('initFood', rooms[room].food);
         }
     });
 
@@ -79,6 +79,6 @@ io.on('connection', (socket) => {
 
 setInterval(() => {
     Object.keys(rooms).forEach(r => { io.to(r).emit('updatePlayers', rooms[r].players); });
-}, 30);
+}, 35); // Paket trafiğini rahatlatmak için 35ms
 
 server.listen(process.env.PORT || 3000);
