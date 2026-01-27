@@ -5,56 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baro Agarz</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #111; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         canvas { display: block; }
-        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .menu { background: white; padding: 20px; border-radius: 10px; text-align: center; }
         
-        /* ÜST PANEL (FFA-1 ve SAYAÇ) */
-        #top-info {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.5); color: white; padding: 10px 20px;
-            border-radius: 20px; text-align: center; z-index: 500;
-        }
+        /* ANA MENÜ (ESC) */
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .menu { background: #fff; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        input, select, button { margin: 10px; padding: 12px; display: block; width: 250px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #218838; }
 
-        /* SOL ALT (GOLD VE SKOR) */
-        #stats {
-            position: absolute; bottom: 20px; left: 20px; color: white;
-            font-size: 20px; font-weight: bold; text-shadow: 2px 2px 4px #000;
-        }
+        /* ÜST PANEL (FFA VE SAYAÇ) */
+        #top-info { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; padding: 8px 25px; border-radius: 25px; font-size: 18px; border: 1px solid rgba(255,255,255,0.2); z-index: 500; }
 
-        /* SAĞ ÜST (TABLO) */
-        #leaderboard {
-            position: absolute; top: 10px; right: 10px; width: 200px;
-            background: rgba(0,0,0,0.5); color: white; padding: 10px;
-            border-radius: 5px; pointer-events: none;
-        }
-        #leaderboard h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #fff; text-align: center; }
-        #lb-list div { font-size: 13px; margin-bottom: 3px; display: flex; justify-content: space-between; }
+        /* SOL ALT (İSTATİSTİKLER) */
+        #stats { position: absolute; bottom: 25px; left: 25px; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 5px #000; pointer-events: none; }
+
+        /* SAĞ ÜST (OYUNCU TABLOSU) */
+        #leaderboard { position: absolute; top: 15px; right: 15px; width: 220px; background: rgba(0,0,0,0.6); color: white; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); }
+        #leaderboard h3 { margin: 0 0 10px 0; font-size: 16px; text-align: center; color: #ffcc00; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 5px; }
+        #lb-list div { font-size: 14px; margin-bottom: 5px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
 
     <div id="overlay">
         <div class="menu">
-            <h2>Baro Agarz</h2>
-            <input type="text" id="nick" placeholder="Nick Yaz..." style="padding:10px; width:200px; margin:10px;">
-            <select id="room" style="padding:10px; width:224px; margin:10px;">
-                <option value="ffa1">Sunucu 1 (FFA-1)</option>
-                <option value="ffa2">Sunucu 2 (FFA-2)</option>
+            <h2 style="margin-top:0; color:#333;">Baro Agarz</h2>
+            <input type="text" id="nick" placeholder="Nick Yazınız..." maxlength="12">
+            <select id="room">
+                <option value="ffa1">Sunucu: FFA-1</option>
+                <option value="ffa2">Sunucu: FFA-2</option>
             </select>
-            <button onclick="join()" style="padding:10px; width:224px; margin:10px; cursor:pointer;">Oyna</button>
+            <button onclick="join()">OYUNA BAŞLA</button>
+            <p style="font-size: 12px; color: #666;">Menü için <b>ESC</b>, Skor Almak için <b>S</b></p>
         </div>
     </div>
 
     <div id="top-info">
-        <span id="room-name" style="font-weight: bold; color: #ffcc00;">FFA-1</span> | 
+        <span id="room-name" style="color: #ffcc00; font-weight:bold;">FFA-1</span> | 
         <span id="timer">01:00:00</span>
     </div>
 
     <div id="stats">
-        <div style="color: #ffcc00;">Gold: <span id="my-gold">0</span></div>
-        <div>Skor: <span id="my-score">0</span></div>
+        <div style="color: #ffcc00;">Altın: <span id="my-gold">0</span></div>
+        <div style="color: #fff;">Skor: <span id="my-score">0</span></div>
     </div>
 
     <div id="leaderboard">
