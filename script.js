@@ -2,41 +2,35 @@ const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');
-const nickInput = document.getElementById('nickname');
+const nickInput = document.getElementById('nick');
+const roomSelect = document.getElementById('roomSelect');
 
 let isPlaying = false;
 let isSpectating = false;
-let currentRoom = 'ffa1';
+let player = { x: 0, y: 0, radius: 20, color: 'dodgerblue', nick: '' };
 let otherPlayers = {};
-let myId = "";
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Oda seçimi
-function selectRoom(room, element) {
-    currentRoom = room;
-    document.querySelectorAll('.room-btn').forEach(btn => btn.classList.remove('active'));
-    element.classList.add('active');
-}
-
-// Oyunu Başlat
-function startGame(spectate) {
+// Oyuna Giriş Fonksiyonu
+function joinGame(spectate) {
     isSpectating = spectate;
     isPlaying = !spectate;
-    overlay.style.display = 'none';
+    player.nick = nickInput.value || "Adsız";
+    overlay.style.display = 'none'; // Menüyü gizle
     
     socket.emit('join', {
-        room: currentRoom,
-        nick: nickInput.value || "Adsız",
+        room: roomSelect.value,
+        nick: player.nick,
         spectate: spectate
     });
 }
 
-// ESC ile Menüye Dön
+// ESC Tuşu Dinleyici
 window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") {
-        overlay.style.display = 'flex';
+        overlay.style.display = 'flex'; // Menüyü göster
         isPlaying = false;
         isSpectating = false;
     }
@@ -49,22 +43,21 @@ socket.on('updatePlayers', (serverPlayers) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Kareli Arkaplan Çizimi (Agar stili)
-    ctx.strokeStyle = "#222";
-    ctx.lineWidth = 1;
-    // (Arkaplan için canvas CSS gradyanı kullanıldı, burası temiz kalabilir)
+    // Arka Plan Grid (Çizgiler)
+    ctx.strokeStyle = '#222';
+    for(let x=0; x<canvas.width; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+    for(let y=0; y<canvas.height; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
 
-    // Oyuncuları Çiz
-    Object.keys(otherPlayers).forEach((id) => {
+    // Tüm Oyuncuları Çiz
+    Object.keys(otherPlayers).forEach(id => {
         let p = otherPlayers[id];
-        
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
         ctx.closePath();
 
-        // İsimleri yaz
+        // İsim Yaz
         ctx.fillStyle = "white";
         ctx.font = "bold 14px Arial";
         ctx.textAlign = "center";
@@ -76,7 +69,9 @@ function draw() {
 
 window.addEventListener('mousemove', (e) => {
     if (isPlaying) {
-        socket.emit('move', { x: e.clientX, y: e.clientY });
+        player.x = e.clientX;
+        player.y = e.clientY;
+        socket.emit('move', { x: player.x, y: player.y, radius: player.radius });
     }
 });
 
